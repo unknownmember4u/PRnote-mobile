@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Feather, Cloud, Lock, Sun, Moon, Monitor } from 'lucide-react';
+import type { ThemeMode } from '@/lib/store';
+import { applyTheme } from '@/lib/store';
 
 interface OnboardingProps {
   onComplete: () => void;
+  onSetTheme: (theme: ThemeMode) => void;
 }
 
-const Onboarding = ({ onComplete }: OnboardingProps) => {
+const Onboarding = ({ onComplete, onSetTheme }: OnboardingProps) => {
   const [step, setStep] = useState(0);
 
   return (
@@ -14,7 +17,7 @@ const Onboarding = ({ onComplete }: OnboardingProps) => {
       <AnimatePresence mode="wait">
         {step === 0 && <SplashStep key="splash" onNext={() => setStep(1)} onSkip={onComplete} />}
         {step === 1 && <FeaturesStep key="features" onNext={() => setStep(2)} onSkip={onComplete} />}
-        {step === 2 && <ThemeStep key="theme" onComplete={onComplete} />}
+        {step === 2 && <ThemeStep key="theme" onComplete={onComplete} onSetTheme={onSetTheme} />}
       </AnimatePresence>
     </div>
   );
@@ -94,13 +97,23 @@ function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
   );
 }
 
-function ThemeStep({ onComplete }: { onComplete: () => void }) {
-  const [selected, setSelected] = useState<string>('Dark');
-  const themes = [
-    { name: 'Light', icon: Sun },
-    { name: 'Dark', icon: Moon },
-    { name: 'AMOLED', icon: Monitor },
+function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTheme: (theme: ThemeMode) => void }) {
+  const [selected, setSelected] = useState<ThemeMode>('dark');
+  const themes: { mode: ThemeMode; label: string; icon: any }[] = [
+    { mode: 'light', label: 'Light', icon: Sun },
+    { mode: 'dark', label: 'Dark', icon: Moon },
+    { mode: 'amoled', label: 'AMOLED', icon: Monitor },
   ];
+
+  const handleSelect = (mode: ThemeMode) => {
+    setSelected(mode);
+    applyTheme(mode); // Live preview
+  };
+
+  const handleComplete = () => {
+    onSetTheme(selected);
+    onComplete();
+  };
 
   return (
     <motion.div
@@ -116,21 +129,21 @@ function ThemeStep({ onComplete }: { onComplete: () => void }) {
         <div className="flex gap-4">
           {themes.map((t) => (
             <button
-              key={t.name}
-              onClick={() => setSelected(t.name)}
+              key={t.mode}
+              onClick={() => handleSelect(t.mode)}
               className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
-                selected === t.name ? 'border-foreground bg-secondary' : 'border-border'
+                selected === t.mode ? 'border-foreground bg-secondary' : 'border-border'
               }`}
             >
-              <t.icon size={24} className={selected === t.name ? 'text-foreground' : 'text-muted-foreground'} />
-              <span className={`text-xs ${selected === t.name ? 'text-foreground' : 'text-muted-foreground'}`}>{t.name}</span>
+              <t.icon size={24} className={selected === t.mode ? 'text-foreground' : 'text-muted-foreground'} />
+              <span className={`text-xs ${selected === t.mode ? 'text-foreground' : 'text-muted-foreground'}`}>{t.label}</span>
             </button>
           ))}
         </div>
       </div>
 
       <button
-        onClick={onComplete}
+        onClick={handleComplete}
         className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium"
       >
         Start writing

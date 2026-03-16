@@ -19,19 +19,17 @@ const STORAGE_KEY = 'prnote-notes';
 const ONBOARDED_KEY = 'prnote-onboarded';
 const SETTINGS_KEY = 'prnote-settings';
 
+export type ThemeMode = 'light' | 'dark' | 'amoled';
+
 export interface AppSettings {
-  darkMode: boolean;
+  theme: ThemeMode;
   spellCheck: boolean;
-  biometricLock: boolean;
-  passcode: string | null;
   defaultFont: string;
 }
 
 const defaultSettings: AppSettings = {
-  darkMode: true,
+  theme: 'dark',
   spellCheck: true,
-  biometricLock: false,
-  passcode: null,
   defaultFont: 'Fraunces',
 };
 
@@ -80,15 +78,34 @@ export function useOnboarded() {
   return { done, complete };
 }
 
+export function applyTheme(theme: ThemeMode) {
+  const root = document.documentElement;
+  root.classList.remove('light', 'dark', 'amoled');
+  root.classList.add(theme);
+}
+
 export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      return raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
+      const parsed = raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
+      // Migrate old darkMode setting
+      if ('darkMode' in parsed && !('theme' in parsed)) {
+        parsed.theme = parsed.darkMode ? 'dark' : 'light';
+      }
+      return parsed;
     } catch { return defaultSettings; }
   });
 
-  useEffect(() => { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }, [settings]);
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    applyTheme(settings.theme);
+  }, [settings]);
+
+  // Apply theme on mount
+  useEffect(() => {
+    applyTheme(settings.theme);
+  }, []);
 
   const update = useCallback((updates: Partial<AppSettings>) => {
     setSettings(prev => ({ ...prev, ...updates }));
