@@ -1,23 +1,21 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, ChevronRight, Moon, Type, ShieldCheck, Download, Trash2 } from 'lucide-react';
-import type { AppSettings } from '@/lib/store';
+import { ArrowLeft, Moon, Sun, Monitor, Type, Download, Trash2 } from 'lucide-react';
+import type { AppSettings, ThemeMode } from '@/lib/store';
 
 interface SettingsViewProps {
   settings: AppSettings;
   onUpdate: (updates: Partial<AppSettings>) => void;
   onBack: () => void;
   onClearAll: () => void;
+  onExport: () => void;
 }
 
-const SettingsView = ({ settings, onUpdate, onBack, onClearAll }: SettingsViewProps) => {
-  const Toggle = ({ on, onToggle }: { on: boolean; onToggle: () => void }) => (
-    <button
-      onClick={onToggle}
-      className={`w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${on ? 'bg-foreground' : 'bg-muted'}`}
-    >
-      <div className={`w-5 h-5 rounded-full bg-background transition-transform ${on ? 'translate-x-5' : ''}`} />
-    </button>
-  );
+const SettingsView = ({ settings, onUpdate, onBack, onClearAll, onExport }: SettingsViewProps) => {
+  const themes: { mode: ThemeMode; label: string; icon: any }[] = [
+    { mode: 'light', label: 'Light', icon: Sun },
+    { mode: 'dark', label: 'Dark', icon: Moon },
+    { mode: 'amoled', label: 'AMOLED', icon: Monitor },
+  ];
 
   return (
     <motion.div
@@ -32,31 +30,35 @@ const SettingsView = ({ settings, onUpdate, onBack, onClearAll }: SettingsViewPr
           <h1 className="font-serif-display text-xl font-semibold text-foreground">Settings</h1>
         </div>
 
-        {/* Account */}
-        <Section title="Account">
-          <Row label="Profile" value="Editorial Team" />
-          <ToggleRow label="Email Notifications" on={true} onToggle={() => {}} />
-        </Section>
-
         {/* Appearance */}
         <Section title="Appearance">
-          <ToggleRow icon={Moon} label="Dark Mode" sublabel="Always On" on={settings.darkMode} onToggle={() => onUpdate({ darkMode: !settings.darkMode })} />
+          <div className="flex gap-3 py-3">
+            {themes.map(t => (
+              <button
+                key={t.mode}
+                onClick={() => onUpdate({ theme: t.mode })}
+                className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border transition-all ${
+                  settings.theme === t.mode ? 'border-foreground bg-secondary' : 'border-border'
+                }`}
+              >
+                <t.icon size={20} className={settings.theme === t.mode ? 'text-foreground' : 'text-muted-foreground'} />
+                <span className={`text-xs ${settings.theme === t.mode ? 'text-foreground' : 'text-muted-foreground'}`}>{t.label}</span>
+              </button>
+            ))}
+          </div>
         </Section>
 
         {/* Editor */}
         <Section title="Editor">
-          <Row icon={Type} label="Default Typography" value={settings.defaultFont} />
           <ToggleRow label="Spell Check" on={settings.spellCheck} onToggle={() => onUpdate({ spellCheck: !settings.spellCheck })} />
         </Section>
 
-        {/* Security */}
-        <Section title="Security">
-          <ToggleRow icon={ShieldCheck} label="Biometric Lock" on={settings.biometricLock} onToggle={() => onUpdate({ biometricLock: !settings.biometricLock })} />
-        </Section>
-
-        {/* Backup */}
-        <Section title="Backup">
-          <Row icon={Download} label="Export Data" value="JSON / Markdown" />
+        {/* Data */}
+        <Section title="Data">
+          <button onClick={onExport} className="w-full flex items-center gap-3 py-3 text-foreground">
+            <Download size={18} className="text-muted-foreground" />
+            <span className="text-sm">Export Notes</span>
+          </button>
           <button onClick={onClearAll} className="w-full flex items-center gap-3 py-3 text-destructive">
             <Trash2 size={18} />
             <span className="text-sm">Clear All Notes</span>
@@ -78,31 +80,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Row({ icon: Icon, label, value }: { icon?: any; label: string; value: string }) {
+function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
   return (
     <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        {Icon && <Icon size={18} className="text-muted-foreground" />}
-        <span className="text-sm text-foreground">{label}</span>
-      </div>
-      <div className="flex items-center gap-1 text-muted-foreground">
-        <span className="text-xs">{value}</span>
-        <ChevronRight size={14} />
-      </div>
-    </div>
-  );
-}
-
-function ToggleRow({ icon: Icon, label, sublabel, on, onToggle }: { icon?: any; label: string; sublabel?: string; on: boolean; onToggle: () => void }) {
-  return (
-    <div className="flex items-center justify-between py-3">
-      <div className="flex items-center gap-3">
-        {Icon && <Icon size={18} className="text-muted-foreground" />}
-        <div>
-          <span className="text-sm text-foreground">{label}</span>
-          {sublabel && <span className="text-xs text-muted-foreground ml-1">{sublabel}</span>}
-        </div>
-      </div>
+      <span className="text-sm text-foreground">{label}</span>
       <button
         onClick={onToggle}
         className={`w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${on ? 'bg-foreground' : 'bg-muted'}`}

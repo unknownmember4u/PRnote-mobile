@@ -42,8 +42,19 @@ const Index = () => {
     }
   }, [notes, deleteNote]);
 
+  const handleExport = useCallback(() => {
+    const data = JSON.stringify(notes, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `prnote-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [notes]);
+
   if (!onboarded) {
-    return <Onboarding onComplete={completeOnboarding} />;
+    return <Onboarding onComplete={completeOnboarding} onSetTheme={(theme) => updateSettings({ theme })} />;
   }
 
   return (
@@ -91,6 +102,7 @@ const Index = () => {
             onUpdate={updateSettings}
             onBack={() => setView('list')}
             onClearAll={handleClearAll}
+            onExport={handleExport}
           />
         )}
       </AnimatePresence>
