@@ -34,10 +34,10 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-background z-50 flex flex-col"
+      className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
     >
       {/* Search bar */}
-      <div className="px-4 pt-12 pb-3">
+      <div className="px-4 safe-top pb-3">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-1">
             <ArrowLeft size={20} className="text-foreground" />

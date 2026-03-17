@@ -67,9 +67,9 @@ const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings,
   );
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="relative flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="px-5 pt-12 pb-2">
+      <div className="px-5 safe-top pb-2">
         <div className="flex items-center justify-between mb-4">
           <h1 className="font-serif-display text-2xl font-semibold text-foreground">PRnote</h1>
           <div className="flex gap-1">
@@ -122,7 +122,7 @@ const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings,
       {/* FAB */}
       <button
         onClick={onNewNote}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+        className="absolute safe-bottom-fab right-6 w-14 h-14 bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
       >
         <Plus size={24} />
       </button>

@@ -40,9 +40,9 @@ const FoldersView = ({ notes, onBack }: FoldersViewProps) => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-background z-50 flex flex-col"
+      className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
     >
-      <div className="px-5 pt-12 pb-4">
+      <div className="flex-1 overflow-y-auto px-5 safe-top safe-bottom pb-4 hide-scrollbar">
         <div className="flex items-center gap-3 mb-6">
           <button onClick={onBack} className="p-1"><ArrowLeft size={20} className="text-foreground" /></button>
           <h1 className="font-serif-display text-xl font-semibold text-foreground">Organize</h1>

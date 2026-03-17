@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings } from '@/lib/store';
 import type { Note } from '@/lib/store';
+import { Capacitor } from '@capacitor/core';
 import Onboarding from '@/components/Onboarding';
 import NotesList from '@/components/NotesList';
 import NoteEditor from '@/components/NoteEditor';
@@ -17,6 +18,7 @@ const Index = () => {
   const { settings, update: updateSettings } = useSettings();
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
   const handleNewNote = useCallback(() => {
     setEditingNote(null);
@@ -53,12 +55,24 @@ const Index = () => {
     URL.revokeObjectURL(url);
   }, [notes]);
 
+  useEffect(() => {
+    const handleAndroidBack = (event: Event) => {
+      if (view !== 'list') {
+        event.preventDefault();
+        setView('list');
+      }
+    };
+
+    window.addEventListener('prnote:android-back', handleAndroidBack);
+    return () => window.removeEventListener('prnote:android-back', handleAndroidBack);
+  }, [view]);
+
   if (!onboarded) {
     return <Onboarding onComplete={completeOnboarding} onSetTheme={(theme) => updateSettings({ theme })} />;
   }
 
   return (
-    <div className="h-screen w-full max-w-md mx-auto relative overflow-hidden bg-background">
+    <div className={`app-shell w-full relative overflow-hidden bg-background ${isNativeAndroid ? 'android-shell' : 'max-w-md mx-auto border-x border-border/60'}`}>
       <NotesList
         notes={notes}
         onNewNote={handleNewNote}

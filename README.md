@@ -1,69 +1,60 @@
-# PRnote
+# PRnote Android App
 
-## Project info
+PRnote is a minimal Android-focused Capacitor project. The native Android wrapper lives in `android/`, and the editable app UI lives in `src/`.
 
-PRnote is a mobile-friendly note-taking app built with React, TypeScript, Vite, shadcn-ui, and Tailwind CSS.
+## Requirements
 
-## How can I edit this code?
+- Node.js 22+
+- npm
+- Java 21
+- Android SDK / Android Studio
+- `adb` for device installs
 
-There are several ways of editing your application.
+## Main Commands
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Start the fast web preview while editing UI:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Build the app with:
+Sync web changes into the Android project:
 
 ```sh
-npm run build
+npm run android:sync
 ```
 
-Preview the production build locally with:
+Build the Android debug APK:
 
 ```sh
-npm run preview
+cd android
+./gradlew assembleDebug
 ```
+
+Install the debug APK on a connected phone:
+
+```sh
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Daily Android Workflow
+
+```sh
+npm run android:sync
+cd android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Kept In This Repo
+
+- `android/` for the native Android project
+- `src/` for the app screens, hooks, and core UI
+- `public/favicon.ico`
+- `capacitor.config.ts`
+- Vite, TypeScript, Tailwind, and npm config files needed to keep editing the app
+
+## Notes
+
+- After changing app code in `src/`, run `npm run android:sync` before rebuilding the APK.
+- This repo was trimmed to remove test files, Playwright files, Bun lockfiles, and unused generated UI components.

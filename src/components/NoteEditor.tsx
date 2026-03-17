@@ -25,7 +25,7 @@ const NoteEditor = ({ initialTitle = '', initialContent = '', onSave, onBack }: 
   };
 
   return (
-    <div className="fixed inset-0 bg-background flex flex-col z-50">
+    <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <button onClick={handleBack} className="p-2 -ml-2">
@@ -55,7 +55,7 @@ const NoteEditor = ({ initialTitle = '', initialContent = '', onSave, onBack }: 
       </div>
 
       {/* Bottom bar */}
-      <div className="px-5 py-3 border-t border-border">
+      <div className="px-5 py-3 border-t border-border safe-bottom">
         <p className="text-xs text-muted-foreground">
           {content.split(/\s+/).filter(Boolean).length} words
         </p>
