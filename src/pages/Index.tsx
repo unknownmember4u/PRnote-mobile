@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings } from '@/lib/store';
 import type { Note } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
+import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
 import Onboarding from '@/components/Onboarding';
 import NotesList from '@/components/NotesList';
 import NoteEditor from '@/components/NoteEditor';
@@ -16,9 +17,24 @@ const Index = () => {
   const { done: onboarded, complete: completeOnboarding } = useOnboarded();
   const { notes, addNote, updateNote, deleteNote } = useNotes();
   const { settings, update: updateSettings } = useSettings();
+  const cloudBackup = useFirebaseBackup(notes);
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const handleCreateFolder = useCallback((name: string) => {
+    const trimmed = name.trim();
+
+    if (!trimmed) {
+      return false;
+    }
+
+    const exists = settings.folders.some((folder) => folder.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      updateSettings({ folders: [...settings.folders, trimmed] });
+    }
+
+    return true;
+  }, [settings.folders, updateSettings]);
 
   const handleNewNote = useCallback(() => {
     setEditingNote(null);
@@ -75,11 +91,13 @@ const Index = () => {
     <div className={`app-shell w-full relative overflow-hidden bg-background ${isNativeAndroid ? 'android-shell' : 'max-w-md mx-auto border-x border-border/60'}`}>
       <NotesList
         notes={notes}
+        folders={settings.folders}
         onNewNote={handleNewNote}
         onOpenNote={handleOpenNote}
         onOpenSearch={() => setView('search')}
         onOpenSettings={() => setView('settings')}
         onOpenFolders={() => setView('folders')}
+        onCreateFolder={handleCreateFolder}
         onUpdateNote={updateNote}
         onDeleteNote={deleteNote}
       />
@@ -106,7 +124,10 @@ const Index = () => {
           <FoldersView
             key="folders"
             notes={notes}
+            folders={settings.folders}
             onBack={() => setView('list')}
+            onCreateFolder={handleCreateFolder}
+            onOpenNote={(note) => { setEditingNote(note); setView('editor'); }}
           />
         )}
         {view === 'settings' && (
@@ -117,6 +138,14 @@ const Index = () => {
             onBack={() => setView('list')}
             onClearAll={handleClearAll}
             onExport={handleExport}
+            cloudConfigured={cloudBackup.configured}
+            cloudUserEmail={cloudBackup.user?.email ?? null}
+            cloudBusyAction={cloudBackup.busyAction}
+            cloudStatus={cloudBackup.statusMessage}
+            cloudLastUploadedAt={cloudBackup.lastUploadedAt}
+            onCloudSignIn={cloudBackup.signIn}
+            onCloudSignOut={cloudBackup.signOut}
+            onCloudUpload={cloudBackup.upload}
           />
         )}
       </AnimatePresence>

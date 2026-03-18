@@ -6,18 +6,20 @@ import NoteActions from './NoteActions';
 
 interface NotesListProps {
   notes: Note[];
+  folders: string[];
   onNewNote: () => void;
   onOpenNote: (note: Note) => void;
   onOpenSearch: () => void;
   onOpenSettings: () => void;
   onOpenFolders: () => void;
+  onCreateFolder: (name: string) => boolean;
   onUpdateNote: (id: string, updates: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
 }
 
 type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged' | 'Archived';
 
-const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onUpdateNote, onDeleteNote }: NotesListProps) => {
+const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote }: NotesListProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [actionNote, setActionNote] = useState<Note | null>(null);
   const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged', 'Archived'];
@@ -136,7 +138,9 @@ const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings,
         {actionNote && (
           <NoteActions
             note={actionNote}
+            folders={Array.from(new Set([...folders, ...notes.map((note) => note.folder).filter(Boolean) as string[]]))}
             onClose={() => setActionNote(null)}
+            onCreateFolder={onCreateFolder}
             onUpdate={(updates) => { onUpdateNote(actionNote.id, updates); setActionNote(null); }}
             onDelete={() => { onDeleteNote(actionNote.id); setActionNote(null); }}
           />

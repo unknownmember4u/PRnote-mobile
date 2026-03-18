@@ -25,12 +25,14 @@ export interface AppSettings {
   theme: ThemeMode;
   spellCheck: boolean;
   defaultFont: string;
+  folders: string[];
 }
 
 const defaultSettings: AppSettings = {
   theme: 'dark',
   spellCheck: true,
   defaultFont: 'Fraunces',
+  folders: [],
 };
 
 function loadNotes(): Note[] {

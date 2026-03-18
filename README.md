@@ -58,3 +58,10 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 - After changing app code in `src/`, run `npm run android:sync` before rebuilding the APK.
 - This repo was trimmed to remove test files, Playwright files, Bun lockfiles, and unused generated UI components.
+
+## Firebase Backup Setup
+
+- Copy `.env.example` to `.env` and fill in your Firebase web app values.
+- In Firebase Console, enable `Authentication > Sign-in method > Google`.
+- In Firestore, create a database for note backups.
+- Keep `localhost` in Firebase Auth authorized domains so the Capacitor app can complete the hosted auth flow.
