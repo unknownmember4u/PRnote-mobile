@@ -27,7 +27,7 @@ const NoteEditor = ({ initialTitle = '', initialContent = '', onSave, onBack }: 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="safe-top flex items-center justify-between px-4 py-3 border-b border-border">
         <button onClick={handleBack} className="p-2 -ml-2">
           <ArrowLeft size={20} className="text-foreground" />
         </button>

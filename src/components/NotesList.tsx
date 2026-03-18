@@ -98,7 +98,10 @@ const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings,
       </div>
 
       {/* Notes */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 hide-scrollbar">
+      <div
+        className="flex-1 overflow-y-auto px-5 py-4 space-y-3 hide-scrollbar"
+        style={{ paddingBottom: 'calc(var(--fab-clearance) + var(--safe-area-bottom) + var(--keyboard-offset))' }}
+      >
         {pinned.length > 0 && activeTab === 'All' && (
           <>
             <div className="flex items-center gap-1.5 mb-2">
@@ -122,7 +125,8 @@ const NotesList = ({ notes, onNewNote, onOpenNote, onOpenSearch, onOpenSettings,
       {/* FAB */}
       <button
         onClick={onNewNote}
-        className="absolute safe-bottom-fab right-6 w-14 h-14 bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+        className="fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+        style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
       >
         <Plus size={24} />
       </button>

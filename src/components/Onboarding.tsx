@@ -29,7 +29,7 @@ function SplashStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
+      className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
     >
       <button onClick={onSkip} className="self-end text-sm text-muted-foreground">Skip</button>
       
@@ -66,7 +66,7 @@ function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
+      className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
     >
       <button onClick={onSkip} className="self-end text-sm text-muted-foreground">Skip</button>
 
@@ -120,7 +120,7 @@ function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTh
       initial={{ opacity: 0, x: 40 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -40 }}
-      className="flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
+      className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
     >
       <div />
 
