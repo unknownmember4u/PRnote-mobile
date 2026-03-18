@@ -1,12 +1,13 @@
 import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
+  signInWithCredential,
   signInWithPopup,
-  signInWithRedirect,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -74,14 +75,26 @@ export async function resolveFirebaseRedirect() {
 
 export async function signInWithGoogle() {
   const auth = getFirebaseAuth();
-  const provider = new GoogleAuthProvider();
-  provider.setCustomParameters({ prompt: 'select_account' });
 
   if (Capacitor.isNativePlatform()) {
-    await signInWithRedirect(auth, provider);
-    return null;
+    const result = await FirebaseAuthentication.signInWithGoogle({
+      skipNativeAuth: true,
+      scopes: ['profile', 'email'],
+      useCredentialManager: true,
+    });
+    const idToken = result.credential?.idToken;
+    const accessToken = result.credential?.accessToken;
+
+    if (!idToken) {
+      throw new Error('Google sign-in did not return an ID token. Check your Firebase Android app configuration.');
+    }
+
+    const credential = GoogleAuthProvider.credential(idToken, accessToken ?? undefined);
+    return signInWithCredential(auth, credential);
   }
 
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
   return signInWithPopup(auth, provider);
 }
 
