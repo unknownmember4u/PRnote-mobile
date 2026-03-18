@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "223344543984",
+    "project_id": "note-f4300",
+    "storage_bucket": "note-f4300.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:223344543984:android:ba150bb9751dbff6849a35",
+        "android_client_info": {
+          "package_name": "com.prnote.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "223344543984-nl3tebddka7l83gr42a6f2qog4v9cpf9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDeMOZ7i2CgtDabdWxd80DIz_snGLEodNI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "223344543984-nl3tebddka7l83gr42a6f2qog4v9cpf9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
