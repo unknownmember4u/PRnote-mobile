@@ -77,11 +77,26 @@ export async function signInWithGoogle() {
   const auth = getFirebaseAuth();
 
   if (Capacitor.isNativePlatform()) {
-    const result = await FirebaseAuthentication.signInWithGoogle({
-      skipNativeAuth: true,
-      scopes: ['profile', 'email'],
-      useCredentialManager: true,
-    });
+    const nativeSignIn = async (useCredentialManager: boolean) =>
+      FirebaseAuthentication.signInWithGoogle({
+        skipNativeAuth: true,
+        scopes: ['profile', 'email'],
+        useCredentialManager,
+      });
+
+    let result;
+
+    try {
+      result = await nativeSignIn(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.toLowerCase().includes('no credentials available')) {
+        throw error;
+      }
+
+      result = await nativeSignIn(false);
+    }
+
     const idToken = result.credential?.idToken;
     const accessToken = result.credential?.accessToken;
 
