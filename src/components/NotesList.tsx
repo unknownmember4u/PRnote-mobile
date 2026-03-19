@@ -249,10 +249,12 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       {!showArchivedView && (
         <button
           onClick={onNewNote}
-          className="fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+          className="fab-animated fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
           style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
         >
-          <Plus size={24} />
+          <span className="fab-plus-icon flex items-center justify-center">
+            <Plus size={24} />
+          </span>
         </button>
       )}
 

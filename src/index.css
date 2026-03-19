@@ -154,6 +154,64 @@ html, body, #root {
 }
 
 @layer utilities {
+  @keyframes fab-float {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -4px, 0) scale(1.02);
+    }
+  }
+
+  @keyframes fab-amoled-bob {
+    0%, 100% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    18% {
+      transform: translate3d(0, -3px, 0) scale(1.02);
+    }
+    32% {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    50% {
+      transform: translate3d(0, -6px, 0) scale(1.035);
+    }
+    68% {
+      transform: translate3d(0, -1px, 0) scale(1.01);
+    }
+  }
+
+  @keyframes fab-glow {
+    0%, 100% {
+      box-shadow:
+        0 18px 30px -16px hsl(var(--foreground) / 0.35),
+        0 0 0 0 hsl(var(--foreground) / 0.16);
+    }
+    50% {
+      box-shadow:
+        0 22px 36px -18px hsl(var(--foreground) / 0.45),
+        0 0 0 10px hsl(var(--foreground) / 0.06);
+    }
+  }
+
+  @keyframes fab-icon-wiggle {
+    0%, 100% {
+      transform: rotate(0deg) scale(1);
+    }
+    20% {
+      transform: rotate(-7deg) scale(0.96);
+    }
+    34% {
+      transform: rotate(7deg) scale(1.06);
+    }
+    48% {
+      transform: rotate(-4deg) scale(0.98);
+    }
+    62% {
+      transform: rotate(0deg) scale(1.04);
+    }
+  }
+
   .font-serif-display {
     font-family: 'Fraunces', serif;
   }
@@ -190,5 +248,34 @@ html, body, #root {
   }
   .safe-right-fab {
     right: calc(var(--app-safe-right) + var(--fab-edge-gap));
+  }
+  .fab-animated {
+    will-change: transform, box-shadow;
+    transform: translateZ(0);
+    animation:
+      fab-float 3.2s ease-in-out infinite,
+      fab-glow 3.2s ease-in-out infinite;
+  }
+  .fab-plus-icon {
+    will-change: transform;
+    transform: translateZ(0);
+    animation: fab-icon-wiggle 3.2s ease-in-out infinite;
+  }
+  .amoled .fab-animated {
+    box-shadow:
+      0 16px 30px -16px hsl(var(--foreground) / 0.22),
+      0 0 0 1px hsl(var(--background) / 0.9),
+      0 0 0 4px hsl(var(--foreground) / 0.08);
+    animation: fab-amoled-bob 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  .amoled .fab-plus-icon {
+    animation: fab-icon-wiggle 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fab-animated,
+    .fab-plus-icon {
+      animation: none;
+    }
   }
 }

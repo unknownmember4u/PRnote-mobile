@@ -19,7 +19,7 @@ const Onboarding = ({ onComplete, onSetTheme }: OnboardingProps) => {
     document.documentElement.classList.contains('amoled') ? 'amoled' : 'light'
   );
   const { notes, setNotes } = useNotes();
-  const cloudBackup = useFirebaseBackup(notes, setNotes);
+  const cloudBackup = useFirebaseBackup(notes, { setNotes });
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col items-center justify-between">

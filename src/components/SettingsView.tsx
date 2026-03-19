@@ -60,6 +60,7 @@ const SettingsView = ({
   const [selectedDownloadIds, setSelectedDownloadIds] = useState<string[]>([]);
 
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
   const [showUploadPicker, setShowUploadPicker] = useState(false);
   const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
@@ -94,6 +95,11 @@ const SettingsView = ({
   const handleConfirmClearAll = () => {
     onClearAll();
     setShowClearAllConfirm(false);
+  };
+
+  const handleConfirmDisconnect = async () => {
+    await onCloudSignOut();
+    setShowDisconnectConfirm(false);
   };
 
   const openUploadPicker = () => {
@@ -203,6 +209,101 @@ const SettingsView = ({
           <h1 className="font-serif-display text-2xl font-semibold text-foreground">Settings</h1>
         </div>
 
+        {/* Cloud Backup */}
+        <Section title="Cloud Backup">
+          <div className="rounded-2xl border border-border bg-card/40 p-5">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-secondary">
+                {cloudUserEmail && cloudUserPhotoUrl && !profileImageFailed ? (
+                  <img
+                    src={cloudUserPhotoUrl}
+                    alt="Google profile"
+                    className="h-full w-full object-cover"
+                    onError={() => setProfileImageFailed(true)}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Cloud size={22} className="text-foreground" />
+                  </div>
+                )}
+              </div>
+              <div className="min-w-0 flex-1 self-center">
+                <p className="break-all text-base font-semibold leading-snug text-foreground">
+                  {cloudUserEmail ? cloudUserEmail : 'Google backup is disconnected'}
+                </p>
+                <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">
+                  {cloudStatusPrimary}
+                </p>
+                {cloudStatusSecondary && (
+                  <div className="mt-2 inline-flex max-w-full items-center rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1.5">
+                    <span className="truncate text-xs font-semibold tracking-[0.01em] text-emerald-300">
+                      {cloudStatusSecondary}
+                    </span>
+                  </div>
+                )}
+                {cloudLastUploadedAt && (
+                  <p className="mt-3 break-words text-xs leading-relaxed text-muted-foreground">
+                    Last upload: {cloudLastUploadedAt}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3">
+              {!cloudConfigured && (
+                <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
+                  Add your Firebase env values to enable Google login and cloud backup.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 pb-4 pt-4">
+            <button
+              onClick={() => setShowCloudDeletePicker(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-3 text-sm font-medium text-destructive-foreground"
+              disabled={!cloudUserEmail || cloudNotes.length === 0 || cloudBusyAction === 'delete'}
+            >
+              <Trash2 size={18} /> Delete notes from cloud
+            </button>
+
+            {cloudUserEmail ? (
+              <>
+                <ActionButton
+                  label={
+                    cloudBusyAction === 'upload'
+                      ? 'Uploading to Cloud...'
+                      : cloudBusyAction === 'download'
+                      ? 'Downloading from Cloud...'
+                      : cloudBusyAction === 'delete'
+                      ? 'Deleting from Cloud...'
+                      : 'Upload Notes to Cloud'
+                  }
+                  icon={CloudUpload}
+                  disabled={cloudBusyAction !== null}
+                  onClick={openUploadPicker}
+                />
+                <ActionButton
+                  label={
+                    cloudBusyAction === 'download' ? 'Downloading from Cloud...' : 'Download Notes from Cloud'
+                  }
+                  icon={CloudDownload}
+                  disabled={cloudBusyAction !== null || cloudNotes.length === 0}
+                  onClick={openDownloadPicker}
+                />
+              </>
+            ) : (
+              <ActionButton
+                label={cloudBusyAction === 'sign-in' ? 'Connecting Google...' : 'Continue with Google'}
+                icon={LogIn}
+                disabled={!cloudConfigured || cloudBusyAction !== null}
+                onClick={onCloudSignIn}
+              />
+            )}
+          </div>
+        </Section>
+
         {/* Appearance */}
         <Section title="Appearance">
           <div className="flex gap-4 py-4">
@@ -279,108 +380,6 @@ const SettingsView = ({
           </div>
         </Section>
 
-        {/* Cloud Backup */}
-        <Section title="Cloud Backup">
-          <button
-            onClick={() => setShowCloudDeletePicker(true)}
-            className="w-full py-3 bg-destructive text-destructive-foreground rounded-xl text-sm font-medium flex items-center gap-2 justify-center mb-2"
-            disabled={!cloudUserEmail || cloudNotes.length === 0 || cloudBusyAction === 'delete'}
-          >
-            <Trash2 size={18} /> Delete notes from cloud
-          </button>
-
-          <div className="rounded-2xl border border-border bg-card/40 p-5">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-secondary">
-                {cloudUserEmail && cloudUserPhotoUrl && !profileImageFailed ? (
-                  <img
-                    src={cloudUserPhotoUrl}
-                    alt="Google profile"
-                    className="h-full w-full object-cover"
-                    onError={() => setProfileImageFailed(true)}
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Cloud size={22} className="text-foreground" />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 self-center">
-                <p className="break-all text-base font-semibold leading-snug text-foreground">
-                  {cloudUserEmail ? cloudUserEmail : 'Google backup is disconnected'}
-                </p>
-                <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">
-                  {cloudStatusPrimary}
-                </p>
-                {cloudStatusSecondary && (
-                  <div className="mt-2 inline-flex max-w-full items-center rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1.5">
-                    <span className="truncate text-xs font-semibold tracking-[0.01em] text-emerald-300">
-                      {cloudStatusSecondary}
-                    </span>
-                  </div>
-                )}
-                {cloudLastUploadedAt && (
-                  <p className="mt-3 break-words text-xs leading-relaxed text-muted-foreground">
-                    Last upload: {cloudLastUploadedAt}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3">
-              {!cloudUserEmail ? (
-                <ActionButton
-                  label={cloudBusyAction === 'sign-in' ? 'Connecting Google...' : 'Continue with Google'}
-                  icon={LogIn}
-                  disabled={!cloudConfigured || cloudBusyAction !== null}
-                  onClick={onCloudSignIn}
-                />
-              ) : (
-                <>
-                  <ActionButton
-                    label={
-                      cloudBusyAction === 'upload'
-                        ? 'Uploading to Cloud...'
-                        : cloudBusyAction === 'download'
-                        ? 'Downloading from Cloud...'
-                        : cloudBusyAction === 'delete'
-                        ? 'Deleting from Cloud...'
-                        : 'Upload Notes to Cloud'
-                    }
-                    icon={CloudUpload}
-                    disabled={cloudBusyAction !== null}
-                    onClick={openUploadPicker}
-                  />
-                  <ActionButton
-                    label={
-                      cloudBusyAction === 'download' ? 'Downloading from Cloud...' : 'Download Notes from Cloud'
-                    }
-                    icon={CloudDownload}
-                    disabled={cloudBusyAction !== null || cloudNotes.length === 0}
-                    onClick={openDownloadPicker}
-                  />
-                  <ActionButton
-                    label={cloudBusyAction === 'sign-out' ? 'Disconnecting...' : 'Disconnect Google'}
-                    icon={LogOut}
-                    disabled={cloudBusyAction !== null}
-                    onClick={onCloudSignOut}
-                    muted
-                    caution
-                    description="Turns off Google backup on this device."
-                  />
-                </>
-              )}
-
-              {!cloudConfigured && (
-                <p className="pt-2 text-xs leading-relaxed text-muted-foreground">
-                  Add your Firebase env values to enable Google login and cloud backup.
-                </p>
-              )}
-            </div>
-          </div>
-        </Section>
-
         {/* Data */}
         <Section title="Data">
           <button
@@ -390,6 +389,17 @@ const SettingsView = ({
             <Trash2 size={22} />
             <span className="text-base font-medium">Clear All Notes</span>
           </button>
+          {cloudUserEmail && (
+            <ActionButton
+              label={cloudBusyAction === 'sign-out' ? 'Disconnecting...' : 'Disconnect Google'}
+              icon={LogOut}
+              disabled={cloudBusyAction !== null}
+              onClick={() => setShowDisconnectConfirm(true)}
+              muted
+              caution
+              description="Turns off Google backup on this device."
+            />
+          )}
         </Section>
 
         <p className="text-center text-sm text-muted-foreground mt-auto pt-8">
@@ -428,6 +438,42 @@ const SettingsView = ({
                 className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
               >
                 Delete All
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showDisconnectConfirm && (
+        <div className="fixed inset-0 z-[70]">
+          <div
+            onClick={() => setShowDisconnectConfirm(false)}
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            className="absolute inset-x-5 top-1/2 -translate-y-1/2 mx-auto max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl"
+          >
+            <h3 className="text-lg font-semibold text-foreground">Disconnect Google?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              This will sign you out of Google backup on this device. Your cloud notes will stay
+              in the cloud, but sync and backup will stop until you sign in again.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowDisconnectConfirm(false)}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDisconnect}
+                disabled={cloudBusyAction !== null}
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
+              >
+                Disconnect
               </button>
             </div>
           </motion.div>
