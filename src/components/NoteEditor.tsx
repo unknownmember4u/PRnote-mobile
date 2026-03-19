@@ -142,9 +142,9 @@ const NoteEditor = ({
   }, [title, content, pinned, favorite, createdAt, fontFamily, onSave, onBack]);
 
   return (
-    <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
+    <div className="fixed inset-0 app-shell bg-background flex flex-col z-50 overflow-hidden">
       {/* Header with Top Icons and Font Selector Menu */}
-      <div className="safe-top flex items-start justify-between px-4 py-4 border-b border-border gap-4">
+      <div className="safe-top sticky top-0 z-20 bg-background flex items-start justify-between px-4 py-4 border-b border-border gap-4">
         <button onClick={handleBack} className="p-2 -ml-2">
           <ArrowLeft size={24} className="text-foreground" />
         </button>
@@ -216,7 +216,7 @@ const NoteEditor = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto px-6 py-3 flex flex-col">
+      <div className="flex-1 overflow-hidden px-6 py-3 flex flex-col">
         <input
           value={title}
           onChange={handleTitleChange}
@@ -231,7 +231,7 @@ const NoteEditor = ({
           value={content}
           onChange={handleContentChange}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-safe"
+          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-safe overflow-y-auto overscroll-contain"
           style={textareaStyles}
         />
       </div>
