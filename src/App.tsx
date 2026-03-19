@@ -17,18 +17,6 @@ const AppContent = () => {
   const [showLaunchSplash, setShowLaunchSplash] = useState(() => Capacitor.isNativePlatform());
   const Router = Capacitor.isNativePlatform() ? HashRouter : BrowserRouter;
 
-  // Hide bootstrap splash screen as soon as React mounts
-  useEffect(() => {
-    const bootstrapSplash = document.getElementById('bootstrap-splash');
-    if (bootstrapSplash) {
-      bootstrapSplash.classList.add('hidden');
-      // Remove from DOM after fade out
-      setTimeout(() => {
-        bootstrapSplash.remove();
-      }, 450);
-    }
-  }, []);
-
   useEffect(() => {
     if (!showLaunchSplash) {
       return;

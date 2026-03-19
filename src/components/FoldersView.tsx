@@ -1,24 +1,30 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Tag } from 'lucide-react';
-import type { Note } from '@/lib/store';
+import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Tag, ChevronDown, FilePlus2, FolderPlus } from 'lucide-react';
+import type { Note, FolderNode } from '@/lib/store';
+import { flattenFolderTree } from '@/lib/store';
 
 interface FoldersViewProps {
   notes: Note[];
-  folders: string[];
+  folderTree: FolderNode[];
   onBack: () => void;
   onCreateFolder: (name: string) => boolean;
+  onCreateNoteInFolder: (path: string) => void;
   onOpenNote: (note: Note) => void;
 }
 
 type SmartFolderKey = 'all' | 'favorites' | 'recent';
 type ActiveView =
-  | { type: 'smart'; key: SmartFolderKey; label: string }
-  | { type: 'folder'; key: string; label: string };
+  | { type: 'smart'; key: SmartFolderKey; label: string; path: string }
+  | { type: 'folder'; path: string; label: string };
 
-const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: FoldersViewProps) => {
-  const [activeView, setActiveView] = useState<ActiveView>({ type: 'smart', key: 'all', label: 'All Notes' });
-  const [folderDraft, setFolderDraft] = useState('');
+const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteInFolder, onOpenNote }: FoldersViewProps) => {
+  const [activeView, setActiveView] = useState<ActiveView>({ type: 'smart', key: 'all', label: 'All Notes', path: '' });
+  const [rootFolderDraft, setRootFolderDraft] = useState('');
+  const [childFolderDraft, setChildFolderDraft] = useState('');
+  const [childComposerPath, setChildComposerPath] = useState<string | null>(null);
+  const [showRootComposer, setShowRootComposer] = useState(false);
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
   const stats = useMemo(() => ({
     all: notes.filter((note) => !note.archived).length,
@@ -26,11 +32,13 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
     recent: notes.filter((note) => Date.now() - note.updatedAt < 7 * 24 * 60 * 60 * 1000 && !note.archived).length,
   }), [notes]);
 
+  const allFolderPaths = useMemo(() => flattenFolderTree(folderTree), [folderTree]);
+
   const folderCounts = useMemo(() => {
     const map = new Map<string, number>();
 
-    folders.forEach((folder) => {
-      map.set(folder, 0);
+    allFolderPaths.forEach((path) => {
+      map.set(path, 0);
     });
 
     notes.forEach((note) => {
@@ -40,7 +48,7 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
     });
 
     return Array.from(map.entries()).sort((left, right) => left[0].localeCompare(right[0]));
-  }, [folders, notes]);
+  }, [allFolderPaths, notes]);
 
   const tags = useMemo(() => {
     const set = new Set<string>();
@@ -51,7 +59,7 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
   const visibleNotes = useMemo(() => {
     switch (activeView.type) {
       case 'folder':
-        return notes.filter((note) => note.folder === activeView.key && !note.archived);
+        return notes.filter((note) => note.folder === activeView.path && !note.archived);
       case 'smart':
         switch (activeView.key) {
           case 'favorites':
@@ -73,15 +81,151 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
     { icon: Clock, key: 'recent' as const, label: 'Recent Edits', count: stats.recent },
   ];
 
-  const handleCreateFolder = () => {
-    const created = onCreateFolder(folderDraft);
+  const handleCreateRootFolder = () => {
+    const name = rootFolderDraft.trim();
+    if (!name) {
+      return;
+    }
+
+    const created = onCreateFolder(name);
     if (!created) {
       return;
     }
 
-    const name = folderDraft.trim();
-    setFolderDraft('');
-    setActiveView({ type: 'folder', key: name, label: name });
+    setRootFolderDraft('');
+    setShowRootComposer(false);
+    setActiveView({ type: 'folder', path: name, label: name });
+  };
+
+  const handleCreateChildFolder = (parentPath: string) => {
+    const name = childFolderDraft.trim();
+    if (!name) {
+      return;
+    }
+
+    const fullPath = `${parentPath}/${name}`;
+    const created = onCreateFolder(fullPath);
+    if (!created) {
+      return;
+    }
+
+    setChildFolderDraft('');
+    setChildComposerPath(null);
+    setExpandedFolders((prev) => {
+      const next = new Set(prev);
+      let running = '';
+      parentPath.split('/').forEach((part) => {
+        running = running ? `${running}/${part}` : part;
+        next.add(running);
+      });
+      return next;
+    });
+    setActiveView({ type: 'folder', path: fullPath, label: name });
+  };
+
+  const toggleFolder = (path: string) => {
+    const newExpanded = new Set(expandedFolders);
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path);
+    } else {
+      newExpanded.add(path);
+    }
+    setExpandedFolders(newExpanded);
+  };
+
+  const renderFolderTree = (nodes: FolderNode[], parentPath = '') => {
+    return nodes.map((node) => {
+      const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+      const isExpanded = expandedFolders.has(fullPath);
+      const count = folderCounts.find(([path]) => path === fullPath)?.[1] ?? 0;
+      const hasChildren = node.children.length > 0;
+      const isComposerOpen = childComposerPath === fullPath;
+
+      return (
+        <div key={fullPath}>
+          <button
+            onClick={() => {
+              if (hasChildren) toggleFolder(fullPath);
+              setActiveView({ type: 'folder', path: fullPath, label: node.name });
+            }}
+            className={`flex w-full items-center justify-between rounded-xl p-4 text-left transition-colors ${
+              activeView.type === 'folder' && activeView.path === fullPath ? 'bg-secondary' : 'hover:bg-secondary'
+            }`}
+            style={{ paddingLeft: `calc(1rem + ${(parentPath.match(/\//g) || []).length * 1.5}rem)` }}
+          >
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {hasChildren && (
+                <ChevronDown
+                  size={20}
+                  className={`flex-shrink-0 text-muted-foreground transition-transform ${isExpanded ? 'rotate-0' : '-rotate-90'}`}
+                />
+              )}
+              {!hasChildren && <div className="w-5" />}
+              <Folder size={22} className="text-muted-foreground flex-shrink-0" />
+              <span className="text-base font-medium text-foreground truncate">{node.name}</span>
+            </div>
+            <div className="ml-2 flex items-center gap-2">
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setActiveView({ type: 'folder', path: fullPath, label: node.name });
+                  onCreateNoteInFolder(fullPath);
+                }}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+                aria-label={`Create note in ${fullPath}`}
+                title="New note in this folder"
+              >
+                <FilePlus2 size={18} />
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setExpandedFolders((prev) => {
+                    const next = new Set(prev);
+                    next.add(fullPath);
+                    return next;
+                  });
+                  setChildComposerPath(fullPath);
+                  setChildFolderDraft('');
+                }}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-background/70 hover:text-foreground"
+                aria-label={`Create subfolder in ${fullPath}`}
+                title="New subfolder in this folder"
+              >
+                <FolderPlus size={18} />
+              </button>
+              <span className="text-sm font-semibold text-muted-foreground bg-background/50 rounded-full px-2.5 py-1 flex-shrink-0">{count}</span>
+            </div>
+          </button>
+          {isComposerOpen && (
+            <div
+              className="mt-2 mb-2 flex gap-2"
+              style={{ paddingLeft: `calc(2rem + ${(fullPath.match(/\//g) || []).length * 1.5}rem)` }}
+            >
+              <input
+                value={childFolderDraft}
+                onChange={(event) => setChildFolderDraft(event.target.value)}
+                placeholder="Subfolder name"
+                className="flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
+                autoFocus
+              />
+              <button
+                onClick={() => handleCreateChildFolder(fullPath)}
+                disabled={!childFolderDraft.trim()}
+                className="rounded-xl bg-foreground px-4 py-3 text-base text-background font-medium disabled:opacity-50 transition-opacity"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
+          )}
+          {hasChildren && isExpanded && (
+            <div>
+              {renderFolderTree(node.children, fullPath)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
@@ -92,79 +236,80 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
       className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
     >
       <div className="flex-1 overflow-y-auto px-5 safe-top safe-bottom pb-4 hide-scrollbar">
-        <div className="flex items-center gap-3 mb-6">
-          <button onClick={onBack} className="p-1"><ArrowLeft size={20} className="text-foreground" /></button>
-          <h1 className="font-serif-display text-xl font-semibold text-foreground">Organize</h1>
+        <div className="flex items-center gap-3 mb-8">
+          <button onClick={onBack} className="p-2 -ml-2"><ArrowLeft size={24} className="text-foreground" /></button>
+          <h1 className="font-serif-display text-2xl font-semibold text-foreground">Organize</h1>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card/40 p-4 mb-6">
-          <p className="text-xs text-muted-foreground font-medium mb-3">Create Folder</p>
-          <div className="flex gap-2">
-            <input
-              value={folderDraft}
-              onChange={(event) => setFolderDraft(event.target.value)}
-              placeholder="Work, Personal, Ideas..."
-              className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            />
+        <div className="rounded-2xl border border-border bg-card/40 p-5 mb-8">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm text-muted-foreground font-semibold">Add Root Folder</p>
             <button
-              onClick={handleCreateFolder}
-              disabled={!folderDraft.trim()}
-              className="rounded-xl bg-foreground px-4 py-2.5 text-sm text-background disabled:opacity-50"
+              onClick={() => {
+                setShowRootComposer((prev) => !prev);
+                setRootFolderDraft('');
+              }}
+              className="rounded-lg border border-border px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
             >
-              <Plus size={16} />
+              {showRootComposer ? 'Cancel' : '+ New Folder'}
             </button>
           </div>
+          {showRootComposer && (
+            <div className="flex gap-2">
+              <input
+                value={rootFolderDraft}
+                onChange={(event) => setRootFolderDraft(event.target.value)}
+                placeholder="Enter folder name"
+                className="flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
+                autoFocus
+              />
+              <button
+                onClick={handleCreateRootFolder}
+                disabled={!rootFolderDraft.trim()}
+                className="rounded-xl bg-foreground px-5 py-3 text-base text-background font-medium disabled:opacity-50 transition-opacity"
+              >
+                <Plus size={20} />
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground mt-3">Use folder row icons to quickly create notes and nest subfolders directly inside them.</p>
         </div>
 
-        <p className="text-xs text-muted-foreground font-medium mb-3">Smart Folders</p>
-        <div className="space-y-1 mb-6">
+        <p className="text-sm text-muted-foreground font-semibold mb-4">Smart Folders</p>
+        <div className="space-y-2 mb-8">
           {smartFolders.map((folder) => (
             <button
               key={folder.key}
-              onClick={() => setActiveView({ type: 'smart', key: folder.key, label: folder.label })}
-              className={`flex w-full items-center justify-between rounded-xl p-3 text-left transition-colors ${
+              onClick={() => setActiveView({ type: 'smart', key: folder.key, label: folder.label, path: '' })}
+              className={`flex w-full items-center justify-between rounded-xl p-4 text-left transition-colors ${
                 activeView.type === 'smart' && activeView.key === folder.key ? 'bg-secondary' : 'hover:bg-secondary'
               }`}
             >
               <div className="flex items-center gap-3">
-                <folder.icon size={18} className="text-muted-foreground" />
-                <span className="text-sm text-foreground">{folder.label}</span>
+                <folder.icon size={22} className="text-muted-foreground" />
+                <span className="text-base font-medium text-foreground">{folder.label}</span>
               </div>
-              <span className="text-xs text-muted-foreground">{folder.count}</span>
+              <span className="text-sm font-semibold text-muted-foreground bg-background/50 rounded-full px-2.5 py-1">{folder.count}</span>
             </button>
           ))}
         </div>
 
-        <p className="text-xs text-muted-foreground font-medium mb-3">My Folders</p>
-        {folderCounts.length > 0 ? (
-          <div className="space-y-1 mb-6">
-            {folderCounts.map(([name, count]) => (
-              <button
-                key={name}
-                onClick={() => setActiveView({ type: 'folder', key: name, label: name })}
-                className={`flex w-full items-center justify-between rounded-xl p-3 text-left transition-colors ${
-                  activeView.type === 'folder' && activeView.key === name ? 'bg-secondary' : 'hover:bg-secondary'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Folder size={18} className="text-muted-foreground" />
-                  <span className="text-sm text-foreground">{name}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">{count}</span>
-              </button>
-            ))}
+        <p className="text-sm text-muted-foreground font-semibold mb-4">My Folders</p>
+        {folderTree.length > 0 ? (
+          <div className="space-y-1.5 mb-8">
+            {renderFolderTree(folderTree)}
           </div>
         ) : (
-          <p className="mb-6 text-sm text-muted-foreground">No folders yet. Create one above, then move notes into it.</p>
+          <p className="mb-8 text-base text-muted-foreground italic">No folders yet. Create a root folder above to get started.</p>
         )}
 
         {tags.length > 0 && (
           <>
-            <p className="text-xs text-muted-foreground font-medium mb-3">Tags</p>
-            <div className="flex flex-wrap gap-2 mb-6">
+            <p className="text-sm text-muted-foreground font-semibold mb-4">Tags</p>
+            <div className="flex flex-wrap gap-2 mb-8">
               {tags.map((tag) => (
-                <span key={tag} className="px-3 py-1.5 rounded-full bg-secondary text-xs text-muted-foreground">
-                  <Tag size={10} className="inline mr-1" />{tag}
+                <span key={tag} className="px-4 py-2 rounded-full bg-secondary text-sm text-muted-foreground font-medium">
+                  <Tag size={12} className="inline mr-2" />{tag}
                 </span>
               ))}
             </div>
@@ -172,35 +317,35 @@ const FoldersView = ({ notes, folders, onBack, onCreateFolder, onOpenNote }: Fol
         )}
 
         <div className="pt-2">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground font-medium">{activeView.label}</p>
-            <span className="text-xs text-muted-foreground">{visibleNotes.length} notes</span>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-base text-muted-foreground font-semibold">{activeView.label}</p>
+            <span className="text-sm text-muted-foreground bg-background/50 rounded-full px-3 py-1.5 font-semibold">{visibleNotes.length} notes</span>
           </div>
 
           {visibleNotes.length > 0 ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {visibleNotes.map((note) => (
                 <button
                   key={note.id}
                   onClick={() => onOpenNote(note)}
-                  className="w-full rounded-2xl border border-border bg-card px-4 py-3 text-left"
+                  className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-left transition-colors hover:bg-card/80"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-foreground line-clamp-1">{note.title}</p>
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <p className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</p>
                     {note.folder && (
-                      <span className="rounded-full bg-secondary px-2 py-1 text-[10px] text-muted-foreground">
-                        {note.folder}
+                      <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground flex-shrink-0">
+                        {note.folder.split('/').pop()}
                       </span>
                     )}
                   </div>
                   {note.content && (
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{note.content}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-2">{note.content}</p>
                   )}
                 </button>
               ))}
             </div>
           ) : (
-            <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-dashed border-border px-4 py-12 text-center text-base text-muted-foreground italic">
               No notes in this folder yet.
             </div>
           )}

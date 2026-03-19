@@ -37,24 +37,24 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
       className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
     >
       {/* Search bar */}
-      <div className="px-4 safe-top pb-3">
+      <div className="px-4 safe-top pb-4">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="p-1">
-            <ArrowLeft size={20} className="text-foreground" />
+            <ArrowLeft size={24} className="text-foreground" />
           </button>
-          <div className="flex-1 flex items-center bg-card border border-border rounded-xl px-3 py-2.5">
+          <div className="flex-1 flex items-center bg-card border border-border rounded-xl px-4 py-3">
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search"
               autoFocus
-              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              className="flex-1 bg-transparent text-base text-foreground placeholder:text-muted-foreground outline-none"
             />
             {query ? (
-              <button onClick={() => setQuery('')}><X size={16} className="text-muted-foreground" /></button>
+              <button onClick={() => setQuery('')}><X size={18} className="text-muted-foreground" /></button>
             ) : (
               <button onClick={() => setListening(!listening)}>
-                <Mic size={16} className={listening ? 'text-foreground' : 'text-muted-foreground'} />
+                <Mic size={18} className={listening ? 'text-foreground' : 'text-muted-foreground'} />
               </button>
             )}
           </div>
@@ -64,33 +64,33 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
       <div className="flex-1 overflow-y-auto px-5 hide-scrollbar">
         {/* Listening indicator */}
         {listening && (
-          <div className="flex flex-col items-center py-6 gap-3">
-            <div className="flex items-end gap-1 h-5">
+          <div className="flex flex-col items-center py-8 gap-4">
+            <div className="flex items-end gap-2 h-6">
               {[0, 1, 2, 3, 4].map(i => (
                 <div
                   key={i}
-                  className="w-1 bg-foreground rounded-full animate-pulse-wave"
+                  className="w-1.5 bg-foreground rounded-full animate-pulse-wave"
                   style={{ animationDelay: `${i * 0.15}s` }}
                 />
               ))}
             </div>
-            <p className="text-xs text-muted-foreground">Listening for keywords...</p>
+            <p className="text-sm font-medium text-muted-foreground">Listening for keywords...</p>
           </div>
         )}
 
         {/* Results */}
         {query && results.length > 0 && (
-          <div className="py-3">
-            <p className="text-xs text-muted-foreground font-medium mb-3">Results</p>
-            <div className="space-y-2">
+          <div className="py-4">
+            <p className="text-sm font-semibold text-muted-foreground mb-4">Results</p>
+            <div className="space-y-3">
               {results.map(n => (
                 <button
                   key={n.id}
                   onClick={() => onOpenNote(n)}
-                  className="w-full text-left p-3 rounded-xl bg-card border border-border"
+                  className="w-full text-left p-4 rounded-xl bg-card border border-border"
                 >
-                  <p className="text-sm font-medium text-foreground line-clamp-1">{n.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{n.content}</p>
+                  <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
+                  <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{n.content}</p>
                 </button>
               ))}
             </div>
@@ -98,8 +98,8 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
         )}
 
         {query && results.length === 0 && (
-          <div className="py-12 text-center">
-            <p className="text-sm text-muted-foreground">No results found</p>
+          <div className="py-16 text-center">
+            <p className="text-base text-muted-foreground">No results found</p>
           </div>
         )}
 
@@ -107,30 +107,30 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
         {!query && (
           <>
             {recent.length > 0 && (
-              <div className="py-3">
-                <p className="text-xs text-muted-foreground font-medium mb-3">Recent</p>
-                <div className="space-y-2">
+              <div className="py-4">
+                <p className="text-sm font-semibold text-muted-foreground mb-4">Recent</p>
+                <div className="space-y-3">
                   {recent.map(n => (
                     <button
                       key={n.id}
                       onClick={() => onOpenNote(n)}
-                      className="w-full text-left p-3 rounded-xl bg-card border border-border"
+                      className="w-full text-left p-4 rounded-xl bg-card border border-border"
                     >
-                      <p className="text-sm font-medium text-foreground line-clamp-1">{n.title}</p>
+                      <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
                     </button>
                   ))}
                 </div>
               </div>
             )}
             {allTags.length > 0 && (
-              <div className="py-3">
-                <p className="text-xs text-muted-foreground font-medium mb-3">Tags</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="py-4">
+                <p className="text-sm font-semibold text-muted-foreground mb-4">Tags</p>
+                <div className="flex flex-wrap gap-3">
                   {allTags.map(tag => (
                     <button
                       key={tag}
                       onClick={() => setQuery(tag)}
-                      className="px-3 py-1.5 rounded-full bg-secondary text-xs text-muted-foreground"
+                      className="px-4 py-2 rounded-full bg-secondary text-sm font-medium text-muted-foreground"
                     >
                       #{tag}
                     </button>

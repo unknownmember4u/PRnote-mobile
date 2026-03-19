@@ -21,11 +21,16 @@ const SETTINGS_KEY = 'prnote-settings';
 
 export type ThemeMode = 'light' | 'dark' | 'amoled';
 
+export interface FolderNode {
+  name: string;
+  children: FolderNode[];
+}
+
 export interface AppSettings {
   theme: ThemeMode;
   spellCheck: boolean;
   defaultFont: string;
-  folders: string[];
+  folders: FolderNode[];
 }
 
 const defaultSettings: AppSettings = {
@@ -34,6 +39,56 @@ const defaultSettings: AppSettings = {
   defaultFont: 'Fraunces',
   folders: [],
 };
+
+// Utility functions for tree operations
+export function findFolder(nodes: FolderNode[], path: string): FolderNode | null {
+  const parts = path.split('/').filter(Boolean);
+  let current = nodes;
+  
+  for (const part of parts) {
+    const found = current.find(node => node.name === part);
+    if (!found) return null;
+    current = found.children;
+  }
+  
+  return parts.length === 0 ? null : current.find(node => node.name === parts[parts.length - 1]) || null;
+}
+
+export function addFolderToTree(nodes: FolderNode[], path: string): FolderNode[] {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length === 0) return nodes;
+  
+  const newNodes = JSON.parse(JSON.stringify(nodes)); // Deep clone
+  let current = newNodes;
+  
+  for (let i = 0; i < parts.length - 1; i++) {
+    let found = current.find((node: FolderNode) => node.name === parts[i]);
+    if (!found) {
+      found = { name: parts[i], children: [] };
+      current.push(found);
+    }
+    current = found.children;
+  }
+  
+  const lastPart = parts[parts.length - 1];
+  if (!current.find((node: FolderNode) => node.name === lastPart)) {
+    current.push({ name: lastPart, children: [] });
+  }
+  
+  return newNodes;
+}
+
+export function flattenFolderTree(nodes: FolderNode[], prefix = ''): string[] {
+  const result: string[] = [];
+  
+  for (const node of nodes) {
+    const fullPath = prefix ? `${prefix}/${node.name}` : node.name;
+    result.push(fullPath);
+    result.push(...flattenFolderTree(node.children, fullPath));
+  }
+  
+  return result;
+}
 
 function loadNotes(): Note[] {
   try {
@@ -51,13 +106,13 @@ export function useNotes() {
 
   useEffect(() => { saveNotes(notes); }, [notes]);
 
-  const addNote = useCallback((title: string, content: string) => {
+  const addNote = useCallback((title: string, content: string, folder: string | null = null) => {
     const note: Note = {
       id: crypto.randomUUID(),
       title, content,
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
-      color: null, tags: [], folder: null,
+      color: null, tags: [], folder,
     };
     setNotes(prev => [note, ...prev]);
     return note;
@@ -90,11 +145,29 @@ export function useSettings() {
   const [settings, setSettings] = useState<AppSettings>(() => {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      const parsed = raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
+      let parsed = raw ? { ...defaultSettings, ...JSON.parse(raw) } : defaultSettings;
+      
       // Migrate old darkMode setting
       if ('darkMode' in parsed && !('theme' in parsed)) {
         parsed.theme = parsed.darkMode ? 'dark' : 'light';
       }
+      
+      // Migrate flat folder array to tree structure
+      if (Array.isArray(parsed.folders) && parsed.folders.length > 0 && typeof parsed.folders[0] === 'string') {
+        const flatFolders = parsed.folders as string[];
+        const tree: FolderNode[] = [];
+        for (const folder of flatFolders) {
+          const newTree = addFolderToTree(tree, folder);
+          // Merge the new folder into the tree
+          for (const node of newTree) {
+            if (!tree.find(n => n.name === node.name)) {
+              tree.push(node);
+            }
+          }
+        }
+        parsed.folders = tree;
+      }
+      
       return parsed;
     } catch { return defaultSettings; }
   });

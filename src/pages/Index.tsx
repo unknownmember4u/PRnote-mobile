@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { useNotes, useOnboarded, useSettings } from '@/lib/store';
+import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree } from '@/lib/store';
 import type { Note } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
@@ -20,6 +20,7 @@ const Index = () => {
   const cloudBackup = useFirebaseBackup(notes);
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
+  const [newNoteFolderPath, setNewNoteFolderPath] = useState<string | null>(null);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const handleCreateFolder = useCallback((name: string) => {
     const trimmed = name.trim();
@@ -28,20 +29,30 @@ const Index = () => {
       return false;
     }
 
-    const exists = settings.folders.some((folder) => folder.toLowerCase() === trimmed.toLowerCase());
+    const flatFolders = flattenFolderTree(settings.folders);
+    const exists = flatFolders.some((folder) => folder.toLowerCase() === trimmed.toLowerCase());
     if (!exists) {
-      updateSettings({ folders: [...settings.folders, trimmed] });
+      const newFolders = addFolderToTree(settings.folders, trimmed);
+      updateSettings({ folders: newFolders });
     }
 
     return true;
   }, [settings.folders, updateSettings]);
 
   const handleNewNote = useCallback(() => {
+    setNewNoteFolderPath(null);
+    setEditingNote(null);
+    setView('editor');
+  }, []);
+
+  const handleNewNoteInFolder = useCallback((folderPath: string) => {
+    setNewNoteFolderPath(folderPath);
     setEditingNote(null);
     setView('editor');
   }, []);
 
   const handleOpenNote = useCallback((note: Note) => {
+    setNewNoteFolderPath(null);
     setEditingNote(note);
     setView('editor');
   }, []);
@@ -50,9 +61,9 @@ const Index = () => {
     if (editingNote) {
       updateNote(editingNote.id, { title, content });
     } else {
-      addNote(title, content);
+      addNote(title, content, newNoteFolderPath);
     }
-  }, [editingNote, updateNote, addNote]);
+  }, [editingNote, updateNote, addNote, newNoteFolderPath]);
 
   const handleClearAll = useCallback(() => {
     if (confirm('Are you sure you want to delete all notes?')) {
@@ -91,7 +102,7 @@ const Index = () => {
     <div className={`app-shell w-full relative overflow-hidden bg-background ${isNativeAndroid ? 'android-shell' : 'max-w-md mx-auto border-x border-border/60'}`}>
       <NotesList
         notes={notes}
-        folders={settings.folders}
+        folders={flattenFolderTree(settings.folders)}
         onNewNote={handleNewNote}
         onOpenNote={handleOpenNote}
         onOpenSearch={() => setView('search')}
@@ -109,7 +120,10 @@ const Index = () => {
             initialTitle={editingNote?.title}
             initialContent={editingNote?.content}
             onSave={handleSaveNote}
-            onBack={() => setView('list')}
+            onBack={() => {
+              setNewNoteFolderPath(null);
+              setView('list');
+            }}
           />
         )}
         {view === 'search' && (
@@ -124,9 +138,10 @@ const Index = () => {
           <FoldersView
             key="folders"
             notes={notes}
-            folders={settings.folders}
+            folderTree={settings.folders}
             onBack={() => setView('list')}
             onCreateFolder={handleCreateFolder}
+            onCreateNoteInFolder={handleNewNoteInFolder}
             onOpenNote={(note) => { setEditingNote(note); setView('editor'); }}
           />
         )}
