@@ -179,14 +179,14 @@ const NoteEditor = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex-1 overflow-y-auto px-6 py-3 flex flex-col">
         <input
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Title"
-          className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-3"
+          className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-2"
         />
-        <p className="text-sm font-medium text-muted-foreground mb-5">
+        <p className="text-sm font-medium text-muted-foreground mb-4">
           {createdDate} • {createdTime} • {wordCount} words
         </p>
         <textarea
@@ -194,7 +194,7 @@ const NoteEditor = ({
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
+          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-safe"
           style={{ 
             fontFamily: getFontFamily(fontFamily),
             fontStyle: ['great-vibes', 'whispering', 'allura'].includes(fontFamily) ? 'normal' : 'italic',
