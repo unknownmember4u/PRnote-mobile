@@ -71,11 +71,6 @@ const SettingsView = ({
           </div>
         </Section>
 
-        {/* Editor */}
-        <Section title="Editor">
-          <ToggleRow label="Spell Check" on={settings.spellCheck} onToggle={() => onUpdate({ spellCheck: !settings.spellCheck })} />
-        </Section>
-
         <Section title="Cloud Backup">
           <div className="rounded-2xl border border-border bg-card/40 p-5">
             <div className="flex items-start gap-4">
@@ -180,24 +175,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     <div className="mb-8">
       <p className="text-sm font-semibold text-muted-foreground mb-3">{title}</p>
       <div className="divide-y divide-border">{children}</div>
-    </div>
-  );
-}
-
-function ToggleRow({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
-  return (
-    <div className="flex items-center justify-between py-4">
-      <span className="text-base font-medium text-foreground">{label}</span>
-      <button
-        onClick={onToggle}
-        className={`w-12 h-7 rounded-full transition-colors flex items-center px-1 ${
-          on ? 'bg-foreground' : 'bg-muted'
-        }`}
-      >
-        <div className={`w-5 h-5 rounded-full bg-background transition-transform ${
-          on ? 'translate-x-5' : ''
-        }`} />
-      </button>
     </div>
   );
 }

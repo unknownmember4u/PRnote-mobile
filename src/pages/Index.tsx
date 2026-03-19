@@ -138,6 +138,7 @@ const Index = () => {
       <NotesList
         notes={notes}
         folders={flattenFolderTree(settings.folders)}
+        isAmoledTheme={settings.theme === 'amoled'}
         onNewNote={handleNewNote}
         onOpenNote={handleOpenNote}
         onOpenSearch={() => setView('search')}

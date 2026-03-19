@@ -10,11 +10,25 @@ import { Capacitor } from '@capacitor/core';
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
+const SETTINGS_STORAGE_KEY = 'prnote-settings';
+
+function isAmoledThemeSelected(): boolean {
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as { theme?: string };
+    return parsed.theme === 'amoled';
+  } catch {
+    return false;
+  }
+}
+
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   useCapacitorInit();
   const [showLaunchSplash, setShowLaunchSplash] = useState(() => Capacitor.isNativePlatform());
+  const [amoledBrandingEnabled] = useState(() => isAmoledThemeSelected());
   const Router = Capacitor.isNativePlatform() ? HashRouter : BrowserRouter;
 
   useEffect(() => {
@@ -33,7 +47,7 @@ const AppContent = () => {
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <LaunchSplash visible={showLaunchSplash} />
+      <LaunchSplash visible={showLaunchSplash} isAmoledBranding={amoledBrandingEnabled} />
       <Router>
         <Routes>
           <Route path="/" element={<Index />} />
