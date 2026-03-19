@@ -193,6 +193,14 @@ const SettingsView = ({
   const cloudStatusPrimary = cloudUserEmail
     ? rawCloudStatusPrimary.replace(new RegExp(`Signed in as\\s+${escapeRegExp(cloudUserEmail)}\\.?`, 'i'), 'Connected to Google backup.')
     : rawCloudStatusPrimary;
+  const continueWithGoogleButton = (
+    <ActionButton
+      label={cloudBusyAction === 'sign-in' ? 'Connecting Google...' : 'Continue with Google'}
+      icon={LogIn}
+      disabled={!cloudConfigured || cloudBusyAction !== null}
+      onClick={onCloudSignIn}
+    />
+  );
 
   return (
     <motion.div
@@ -260,6 +268,8 @@ const SettingsView = ({
           </div>
 
           <div className="space-y-3 pb-4 pt-4">
+            {!cloudUserEmail && continueWithGoogleButton}
+
             <button
               onClick={() => setShowCloudDeletePicker(true)}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-destructive py-3 text-sm font-medium text-destructive-foreground"
@@ -293,14 +303,7 @@ const SettingsView = ({
                   onClick={openDownloadPicker}
                 />
               </>
-            ) : (
-              <ActionButton
-                label={cloudBusyAction === 'sign-in' ? 'Connecting Google...' : 'Continue with Google'}
-                icon={LogIn}
-                disabled={!cloudConfigured || cloudBusyAction !== null}
-                onClick={onCloudSignIn}
-              />
-            )}
+            ) : null}
           </div>
         </Section>
 
