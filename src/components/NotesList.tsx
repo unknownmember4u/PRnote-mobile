@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import prnoteAmoledMark from '@/assets/branding/prnote-amoled-mark.png';
+import prnoteLightMark from '@/assets/branding/prnote-light-mark.png';
 import NoteActions from './NoteActions';
 
 interface NotesListProps {
@@ -164,7 +165,12 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
                   draggable={false}
                 />
               ) : (
-                <h1 className="font-serif-display text-2xl font-semibold text-foreground">PRnote</h1>
+                <img
+                  src={prnoteLightMark}
+                  alt="PRnote"
+                  className="h-9 w-auto select-none pointer-events-none"
+                  draggable={false}
+                />
               )}
               <div className="flex items-center gap-1">
                 <button

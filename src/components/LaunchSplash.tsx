@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import prnoteAmoledMark from '@/assets/branding/prnote-amoled-mark.png';
+import prnoteLightMark from '@/assets/branding/prnote-light-mark.png';
 
 interface LaunchSplashProps {
   visible: boolean;
@@ -51,36 +52,17 @@ const LaunchSplash = ({ visible, isAmoledBranding = false }: LaunchSplashProps) 
               </motion.div>
             ) : (
               <motion.div
-                initial={{ opacity: 0, y: 12, scale: 0.96 }}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.7, ease: 'easeOut' }}
                 className="flex flex-col items-center"
               >
-                <motion.div
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ duration: 2.6, repeat: Infinity, ease: 'easeInOut' }}
-                  className="mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] border border-foreground/10 bg-card/80 shadow-[0_24px_60px_rgba(0,0,0,0.12)] backdrop-blur"
-                >
-                  <span className="font-serif-display text-4xl font-semibold text-foreground">P</span>
-                </motion.div>
-
-                <motion.h1
-                  initial={{ opacity: 0, letterSpacing: '0.22em' }}
-                  animate={{ opacity: 1, letterSpacing: '0.04em' }}
-                  transition={{ duration: 0.8, delay: 0.12, ease: 'easeOut' }}
-                  className="font-serif-display text-[2.35rem] font-semibold text-foreground"
-                >
-                  PRnote
-                </motion.h1>
-
-                <motion.p
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 0.82, y: 0 }}
-                  transition={{ duration: 0.7, delay: 0.24, ease: 'easeOut' }}
-                  className="mt-3 text-sm tracking-[0.22em] text-muted-foreground uppercase"
-                >
-                  Crafted for clarity
-                </motion.p>
+                <img
+                  src={prnoteLightMark}
+                  alt="PRnote"
+                  className="w-[15.5rem] max-w-[82vw] select-none pointer-events-none"
+                  draggable={false}
+                />
               </motion.div>
             )}
 
