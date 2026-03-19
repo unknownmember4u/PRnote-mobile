@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { ArrowLeft, Share, Pin, Star, Type } from 'lucide-react';
 import type { NoteFont } from '@/lib/store';
 
@@ -52,42 +52,82 @@ const NoteEditor = ({
     contentRef.current?.focus();
   }, []);
 
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  // Memoize word count calculation
+  const wordCount = useMemo(() => content.split(/\s+/).filter(Boolean).length, [content]);
 
-  const createdDate = new Date(createdAt).toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  // Memoize date formatting
+  const createdDate = useMemo(() => 
+    new Date(createdAt).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }), 
+  [createdAt]);
 
-  const createdTime = new Date(createdAt).toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  // Memoize time formatting
+  const createdTime = useMemo(() => 
+    new Date(createdAt).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    }), 
+  [createdAt]);
 
   const selectedFont = FONT_OPTIONS.find((option) => option.value === fontFamily) ?? FONT_OPTIONS[0];
 
-  // Get font family string for rendering
-  const getFontFamily = (font: NoteFont): string => {
+  // Memoize font family lookup
+  const getFontFamily = useCallback((font: NoteFont): string => {
     const option = FONT_OPTIONS.find((opt) => opt.value === font);
     return option?.family ?? FONT_OPTIONS[0].family;
-  };
+  }, []);
 
-  // Get special styling for script fonts
-  const getScriptFontStyles = (font: NoteFont): React.CSSProperties => {
+  // Memoize script font styles
+  const getScriptFontStyles = useCallback((font: NoteFont): React.CSSProperties => {
     const scriptFonts = ['great-vibes', 'whispering', 'allura'];
     if (!scriptFonts.includes(font)) return {};
     
     return {
-      fontSize: font === 'whispering' ? '1.625rem' : '2rem', // 26px or 32px
-      fontStyle: 'normal', // Remove italic for script fonts
-      letterSpacing: font === 'whispering' ? '0.05em' : '0.1em', // Add spacing
-      fontWeight: font === 'whispering' ? 600 : 400, // Whispering can use 600
+      fontSize: font === 'whispering' ? '1.625rem' : '2rem',
+      fontStyle: 'normal',
+      letterSpacing: font === 'whispering' ? '0.05em' : '0.1em',
+      fontWeight: font === 'whispering' ? 600 : 400,
       lineHeight: '1.8',
     };
-  };
+  }, []);
 
-  const handleBack = () => {
+  // Memoize textarea styles to prevent recalculation on every render
+  const textareaStyles = useMemo(() => ({
+    fontFamily: getFontFamily(fontFamily),
+    fontStyle: ['great-vibes', 'whispering', 'allura'].includes(fontFamily) ? 'normal' : 'italic',
+    ...getScriptFontStyles(fontFamily),
+  }), [fontFamily, getFontFamily, getScriptFontStyles]);
+
+  // Memoize event handlers
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setTitle(e.target.value);
+  }, []);
+
+  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value);
+  }, []);
+
+  const handlePinToggle = useCallback(() => {
+    setPinned((current) => !current);
+  }, []);
+
+  const handleFavoriteToggle = useCallback(() => {
+    setFavorite((current) => !current);
+  }, []);
+
+  const handleFontMenuToggle = useCallback(() => {
+    setFontMenuOpen((prev) => !prev);
+  }, []);
+
+  const handleFontSelect = useCallback((font: NoteFont) => {
+    setFontFamily(font);
+    setFontMenuOpen(false);
+  }, []);
+
+  const handleBack = useCallback(() => {
     if (title.trim() || content.trim()) {
       onSave({
         title: title || 'Untitled',
@@ -99,7 +139,7 @@ const NoteEditor = ({
       });
     }
     onBack();
-  };
+  }, [title, content, pinned, favorite, createdAt, fontFamily, onSave, onBack]);
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
@@ -117,7 +157,7 @@ const NoteEditor = ({
           {/* Top action buttons */}
           <div className="flex gap-1">
             <button
-              onClick={() => setPinned((current) => !current)}
+              onClick={handlePinToggle}
               className="p-2"
               aria-label={pinned ? 'Unpin note' : 'Pin note'}
               title={pinned ? 'Unpin note' : 'Pin note'}
@@ -125,7 +165,7 @@ const NoteEditor = ({
               <Pin size={20} className={pinned ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
             </button>
             <button
-              onClick={() => setFavorite((current) => !current)}
+              onClick={handleFavoriteToggle}
               className="p-2"
               aria-label={favorite ? 'Unfavorite note' : 'Favorite note'}
               title={favorite ? 'Unfavorite note' : 'Favorite note'}
@@ -137,7 +177,7 @@ const NoteEditor = ({
             </button>
             {/* Font selector root icon */}
             <button
-              onClick={() => setFontMenuOpen((prev) => !prev)}
+              onClick={handleFontMenuToggle}
               className={`p-2 rounded-lg border transition-all ${
                 fontMenuOpen
                   ? 'border-foreground bg-secondary text-foreground'
@@ -156,10 +196,7 @@ const NoteEditor = ({
               {FONT_OPTIONS.map((option) => (
                 <button
                   key={option.value}
-                  onClick={() => {
-                    setFontFamily(option.value);
-                    setFontMenuOpen(false);
-                  }}
+                  onClick={() => handleFontSelect(option.value)}
                   className={`flex items-center rounded-lg border px-3 py-2 text-xs transition-all ${
                     fontFamily === option.value
                       ? 'border-foreground bg-secondary text-foreground'
@@ -182,7 +219,7 @@ const NoteEditor = ({
       <div className="flex-1 overflow-y-auto px-6 py-3 flex flex-col">
         <input
           value={title}
-          onChange={e => setTitle(e.target.value)}
+          onChange={handleTitleChange}
           placeholder="Title"
           className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-2"
         />
@@ -192,14 +229,10 @@ const NoteEditor = ({
         <textarea
           ref={contentRef}
           value={content}
-          onChange={e => setContent(e.target.value)}
+          onChange={handleContentChange}
           placeholder="Start writing..."
           className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-safe"
-          style={{ 
-            fontFamily: getFontFamily(fontFamily),
-            fontStyle: ['great-vibes', 'whispering', 'allura'].includes(fontFamily) ? 'normal' : 'italic',
-            ...getScriptFontStyles(fontFamily)
-          }}
+          style={textareaStyles}
         />
       </div>
 
