@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Share, Pin, Star, Type, Sparkles, Pen } from 'lucide-react';
+import { ArrowLeft, Share, Pin, Star, Type } from 'lucide-react';
 import type { NoteFont } from '@/lib/store';
 
-const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string; icon: React.ReactNode }> = [
-  { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif", icon: <Type size={16} /> },
-  { value: 'rustico', label: 'Rustico', family: "'Lora', serif", icon: <Type size={16} /> },
-  { value: 'priestacy', label: 'Priestacy', family: "'Fredoka One', sans-serif", icon: <Sparkles size={16} /> },
-  { value: 'great-vibes', label: 'Great Vibes', family: "'Great Vibes', cursive", icon: <Pen size={16} /> },
-  { value: 'whispering', label: 'Whispering', family: "'Dancing Script', cursive", icon: <Pen size={16} /> },
-  { value: 'allura', label: 'Allura', family: "'Allura', cursive", icon: <Pen size={16} /> },
+const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
+  { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
+  { value: 'rustico', label: 'Rustico', family: "'Lora', serif" },
+  { value: 'priestacy', label: 'Priestacy', family: "'Fredoka One', sans-serif" },
+  { value: 'great-vibes', label: 'Great Vibes', family: "'Great Vibes', cursive" },
+  { value: 'whispering', label: 'Whispering', family: "'Dancing Script', cursive" },
+  { value: 'allura', label: 'Allura', family: "'Allura', cursive" },
 ];
 
 interface NoteEditorProps {
@@ -45,6 +45,7 @@ const NoteEditor = ({
   const [favorite, setFavorite] = useState(initialFavorite);
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
   const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
+  const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -102,7 +103,7 @@ const NoteEditor = ({
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
-      {/* Header with Top Icons and Font Selector */}
+      {/* Header with Top Icons and Font Selector Menu */}
       <div className="safe-top flex items-start justify-between px-4 py-4 border-b border-border gap-4">
         <button onClick={handleBack} className="p-2 -ml-2">
           <ArrowLeft size={24} className="text-foreground" />
@@ -111,8 +112,8 @@ const NoteEditor = ({
         {/* Center content area */}
         <div className="flex-1" />
 
-        {/* Right side: Action buttons and Font selector */}
-        <div className="flex flex-col items-end gap-1">
+        {/* Right side: Action buttons and Font menu */}
+        <div className="flex flex-col items-end relative">
           {/* Top action buttons */}
           <div className="flex gap-1">
             <button
@@ -134,25 +135,46 @@ const NoteEditor = ({
             <button className="p-2" aria-label="Share note" title="Share note">
               <Share size={20} className="text-muted-foreground" />
             </button>
+            {/* Font selector root icon */}
+            <button
+              onClick={() => setFontMenuOpen((prev) => !prev)}
+              className={`p-2 rounded-lg border transition-all ${
+                fontMenuOpen
+                  ? 'border-foreground bg-secondary text-foreground'
+                  : 'border-border text-muted-foreground'
+              }`}
+              title="Change font"
+              aria-label="Font menu"
+            >
+              <Type size={20} />
+            </button>
           </div>
 
-          {/* Font selector icons - vertical stack */}
-          <div className="flex flex-col gap-1 pt-2 border-t border-border/30">
-            {FONT_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                onClick={() => setFontFamily(option.value)}
-                className={`p-2 rounded-lg border transition-all ${
-                  fontFamily === option.value
-                    ? 'border-foreground bg-secondary text-foreground shadow-md'
-                    : 'border-border text-muted-foreground hover:border-foreground/50'
-                }`}
-                title={option.label}
-              >
-                <span className="flex items-center justify-center">{option.icon}</span>
-              </button>
-            ))}
-          </div>
+          {/* Font selector dropdown menu - appears below the font icon */}
+          {fontMenuOpen && (
+            <div className="absolute top-full right-0 mt-2 bg-background border border-border rounded-lg shadow-lg p-2 flex flex-wrap gap-2 w-max max-w-xs z-50">
+              {FONT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => {
+                    setFontFamily(option.value);
+                    setFontMenuOpen(false);
+                  }}
+                  className={`flex items-center rounded-lg border px-3 py-2 text-xs transition-all ${
+                    fontFamily === option.value
+                      ? 'border-foreground bg-secondary text-foreground'
+                      : 'border-border text-muted-foreground hover:border-foreground/50'
+                  }`}
+                  style={{ fontFamily: option.family }}
+                  title={`Switch to ${option.label} font`}
+                >
+                  <span style={{ fontFamily: option.family }} className="font-medium">
+                    {option.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
