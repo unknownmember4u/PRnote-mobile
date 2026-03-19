@@ -16,7 +16,7 @@ export interface Note {
   fontFamily: NoteFont;
 }
 
-export type NoteFont = 'inter' | 'poppins' | 'merriweather' | 'playfair' | 'mono';
+export type NoteFont = 'playfair' | 'rustico' | 'priestacy' | 'great-vibes' | 'whispering' | 'allura';
 
 const STORAGE_KEY = 'prnote-notes';
 const ONBOARDED_KEY = 'prnote-onboarded';
@@ -123,7 +123,7 @@ function loadNotes(): Note[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.map((note) => ({ ...note, fontFamily: note.fontFamily ?? 'inter' }))
+      ? parsed.map((note) => ({ ...note, fontFamily: note.fontFamily ?? 'playfair' }))
       : [];
   } catch { return []; }
 }
@@ -143,7 +143,7 @@ export function useNotes() {
       title, content,
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
-      color: null, tags: [], folder, fontFamily: 'inter',
+      color: null, tags: [], folder, fontFamily: 'playfair',
     };
     setNotes(prev => [note, ...prev]);
     return note;

@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Share, Pin, Star } from 'lucide-react';
+import { ArrowLeft, Share, Pin, Star, Type, Sparkles, Pen } from 'lucide-react';
 import type { NoteFont } from '@/lib/store';
 
-const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
-  { value: 'inter', label: 'Inter', family: "'Inter', sans-serif" },
-  { value: 'poppins', label: 'Poppins', family: "'Poppins', sans-serif" },
-  { value: 'merriweather', label: 'Merriweather', family: "'Merriweather', serif" },
-  { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
-  { value: 'mono', label: 'Mono', family: "'JetBrains Mono', monospace" },
+const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string; icon: React.ReactNode }> = [
+  { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif", icon: <Type size={16} /> },
+  { value: 'rustico', label: 'Rustico', family: "'Lora', serif", icon: <Type size={16} /> },
+  { value: 'priestacy', label: 'Priestacy', family: "'Fredoka One', sans-serif", icon: <Sparkles size={16} /> },
+  { value: 'great-vibes', label: 'Great Vibes', family: "'Great Vibes', cursive", icon: <Pen size={16} /> },
+  { value: 'whispering', label: 'Whispering', family: "'Dancing Script', cursive", icon: <Pen size={16} /> },
+  { value: 'allura', label: 'Allura', family: "'Allura', cursive", icon: <Pen size={16} /> },
 ];
 
 interface NoteEditorProps {
@@ -34,7 +35,7 @@ const NoteEditor = ({
   initialPinned = false,
   initialFavorite = false,
   initialCreatedAt,
-  initialFontFamily = 'inter',
+  initialFontFamily = 'playfair',
   onSave,
   onBack,
 }: NoteEditorProps) => {
@@ -64,6 +65,12 @@ const NoteEditor = ({
   });
 
   const selectedFont = FONT_OPTIONS.find((option) => option.value === fontFamily) ?? FONT_OPTIONS[0];
+
+  // Get font family string for rendering
+  const getFontFamily = (font: NoteFont): string => {
+    const option = FONT_OPTIONS.find((opt) => opt.value === font);
+    return option?.family ?? FONT_OPTIONS[0].family;
+  };
 
   const handleBack = () => {
     if (title.trim() || content.trim()) {
@@ -118,19 +125,24 @@ const NoteEditor = ({
         <p className="text-sm font-medium text-muted-foreground mb-5">
           {createdDate} • {createdTime} • {wordCount} words
         </p>
+        {/* Font Selector with Icons */}
         <div className="mb-5 flex flex-wrap gap-2">
           {FONT_OPTIONS.map((option) => (
             <button
               key={option.value}
               onClick={() => setFontFamily(option.value)}
-              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-all ${
                 fontFamily === option.value
-                  ? 'border-foreground bg-secondary text-foreground'
-                  : 'border-border text-muted-foreground'
+                  ? 'border-foreground bg-secondary text-foreground shadow-md'
+                  : 'border-border text-muted-foreground hover:border-foreground/50'
               }`}
               style={{ fontFamily: option.family }}
+              title={`Switch to ${option.label} font`}
             >
-              {option.label}
+              <span className="flex-shrink-0 text-muted-foreground">{option.icon}</span>
+              <span style={{ fontFamily: option.family }} className="font-medium">
+                {option.label}
+              </span>
             </button>
           ))}
         </div>
@@ -140,7 +152,7 @@ const NoteEditor = ({
           onChange={e => setContent(e.target.value)}
           placeholder="Start writing..."
           className="w-full bg-transparent text-xl italic text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
-          style={{ fontFamily: selectedFont.family }}
+          style={{ fontFamily: getFontFamily(fontFamily) }}
         />
       </div>
 
