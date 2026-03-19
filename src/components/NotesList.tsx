@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
 import type { Note } from '@/lib/store';
@@ -25,6 +25,30 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   const [showArchivedView, setShowArchivedView] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
   const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged'];
+
+  useEffect(() => {
+    const handleAndroidBack = (event: Event) => {
+      if (pendingDelete) {
+        event.preventDefault();
+        setPendingDelete(null);
+        return;
+      }
+
+      if (actionNote) {
+        event.preventDefault();
+        setActionNote(null);
+        return;
+      }
+
+      if (showArchivedView) {
+        event.preventDefault();
+        setShowArchivedView(false);
+      }
+    };
+
+    window.addEventListener('prnote:android-back', handleAndroidBack);
+    return () => window.removeEventListener('prnote:android-back', handleAndroidBack);
+  }, [showArchivedView, actionNote, pendingDelete]);
 
   const archivedNotes = notes
     .filter((n) => n.archived)
