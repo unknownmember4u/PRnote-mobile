@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal } from 'lucide-react';
+import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2 } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
 
@@ -17,19 +17,24 @@ interface NotesListProps {
   onDeleteNote: (id: string) => void;
 }
 
-type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged' | 'Archived';
+type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged';
 
 const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote }: NotesListProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [actionNote, setActionNote] = useState<Note | null>(null);
-  const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged', 'Archived'];
+  const [showArchivedView, setShowArchivedView] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
+  const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged'];
+
+  const archivedNotes = notes
+    .filter((n) => n.archived)
+    .sort((left, right) => right.updatedAt - left.updatedAt);
 
   const filtered = notes.filter(n => {
     switch (activeTab) {
       case 'Pinned': return n.pinned && !n.archived;
       case 'Favorites': return n.favorite && !n.archived;
       case 'Tagged': return n.tags.length > 0 && !n.archived;
-      case 'Archived': return n.archived;
       default: return !n.archived;
     }
   });
@@ -68,13 +73,61 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
     </motion.button>
   );
 
+  const ArchivedNoteCard = ({ note }: { note: Note }) => (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border"
+    >
+      <button onClick={() => onOpenNote(note)} className="w-full text-left">
+        <h3 className="text-base font-semibold text-foreground line-clamp-1">{note.title}</h3>
+        {note.content && (
+          <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{note.content}</p>
+        )}
+        <p className="text-xs text-muted-foreground mt-3">Archived on {formatDate(note.updatedAt)}</p>
+      </button>
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={() => onUpdateNote(note.id, { archived: false })}
+          className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors flex items-center justify-center gap-2"
+        >
+          <RotateCcw size={16} />
+          Recover
+        </button>
+        <button
+          onClick={() => setPendingDelete(note)}
+          className="flex-1 rounded-xl bg-destructive text-destructive-foreground px-3 py-2.5 text-sm font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+        >
+          <Trash2 size={16} />
+          Delete Permanently
+        </button>
+      </div>
+    </motion.div>
+  );
+
   return (
     <div className="relative flex flex-col h-full bg-background">
       {/* Header */}
       <div className="px-5 safe-top pb-2">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-serif-display text-2xl font-semibold text-foreground">PRnote</h1>
+          <h1 className="font-serif-display text-2xl font-semibold text-foreground">
+            {showArchivedView ? 'Archived Notes' : 'PRnote'}
+          </h1>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowArchivedView((current) => !current)}
+              className={`relative p-2 rounded-lg transition-colors ${showArchivedView ? 'bg-secondary text-foreground' : ''}`}
+              title="View archived notes"
+              aria-label="View archived notes"
+            >
+              <Archive size={22} className={showArchivedView ? 'text-foreground' : 'text-muted-foreground'} />
+              {archivedNotes.length > 0 && (
+                <span className="absolute -top-1 -right-1 rounded-full bg-foreground text-background text-[10px] min-w-5 h-5 px-1.5 flex items-center justify-center font-semibold">
+                  {archivedNotes.length}
+                </span>
+              )}
+            </button>
             <button onClick={onOpenSearch} className="p-2"><Search size={22} className="text-muted-foreground" /></button>
             <button onClick={onOpenFolders} className="p-2"><Folder size={22} className="text-muted-foreground" /></button>
             <button onClick={onOpenSettings} className="p-2"><Settings size={22} className="text-muted-foreground" /></button>
@@ -82,7 +135,8 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1">
+        {!showArchivedView && (
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1">
           {tabs.map(tab => (
             <button
               key={tab}
@@ -96,7 +150,8 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
               {tab}
             </button>
           ))}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Notes */}
@@ -104,6 +159,18 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
         className="flex-1 overflow-y-auto px-5 py-4 space-y-4 hide-scrollbar"
         style={{ paddingBottom: 'calc(var(--fab-clearance) + var(--safe-area-bottom) + var(--keyboard-offset))' }}
       >
+        {showArchivedView ? (
+          archivedNotes.length > 0 ? (
+            <div className="space-y-4">
+              {archivedNotes.map((n) => <ArchivedNoteCard key={n.id} note={n} />)}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
+              <p className="text-base">No archived notes</p>
+            </div>
+          )
+        ) : (
+          <>
         {pinned.length > 0 && activeTab === 'All' && (
           <>
             <div className="flex items-center gap-3 mb-4">
@@ -122,16 +189,20 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
             <p className="text-base">No notes yet</p>
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* FAB */}
-      <button
-        onClick={onNewNote}
-        className="fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
-        style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
-      >
-        <Plus size={24} />
-      </button>
+      {!showArchivedView && (
+        <button
+          onClick={onNewNote}
+          className="fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+          style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
+        >
+          <Plus size={24} />
+        </button>
+      )}
 
       {/* Note Actions Sheet */}
       <AnimatePresence>
@@ -144,6 +215,46 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
             onUpdate={(updates) => { onUpdateNote(actionNote.id, updates); setActionNote(null); }}
             onDelete={() => { onDeleteNote(actionNote.id); setActionNote(null); }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {pendingDelete && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingDelete(null)}
+              className="fixed inset-0 bg-background/70 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-x-6 top-1/2 -translate-y-1/2 bg-[hsl(var(--pr-surface))] border border-border rounded-2xl p-6 z-50 max-w-sm mx-auto"
+            >
+              <h3 className="text-base font-semibold text-foreground">Permanently delete this archived note?</h3>
+              <p className="text-sm text-muted-foreground mt-2">This cannot be undone.</p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setPendingDelete(null)}
+                  className="flex-1 py-3 rounded-xl border border-border text-sm text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteNote(pendingDelete.id);
+                    setPendingDelete(null);
+                  }}
+                  className="flex-1 py-3 rounded-xl bg-destructive text-destructive-foreground text-sm font-semibold"
+                >
+                  Delete
+                </button>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>
