@@ -15,11 +15,12 @@ interface NotesListProps {
   onCreateFolder: (name: string) => boolean;
   onUpdateNote: (id: string, updates: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
+  onDuplicateNote: (note: Note) => void;
 }
 
 type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged';
 
-const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote }: NotesListProps) => {
+const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote, onDuplicateNote }: NotesListProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [actionNote, setActionNote] = useState<Note | null>(null);
   const [showArchivedView, setShowArchivedView] = useState(false);
@@ -255,7 +256,8 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
             folders={Array.from(new Set([...folders, ...notes.map((note) => note.folder).filter(Boolean) as string[]]))}
             onClose={() => setActionNote(null)}
             onCreateFolder={onCreateFolder}
-            onUpdate={(updates) => { onUpdateNote(actionNote.id, updates); setActionNote(null); }}
+            onUpdate={(updates) => { onUpdateNote(actionNote.id, updates); }}
+            onDuplicate={() => onDuplicateNote(actionNote)}
             onDelete={() => { onDeleteNote(actionNote.id); setActionNote(null); }}
           />
         )}

@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Pin, Star, Palette, FolderOpen, Tag, Lock, Archive, Share, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Pin, Star, Copy, FolderOpen, Tag, Lock, Archive, Share, Trash2, AlertTriangle } from 'lucide-react';
+import { Share as CapacitorShare } from '@capacitor/share';
 import type { Note } from '@/lib/store';
+import { authenticateWithDeviceLock, hashSecret, verifySecret } from '@/lib/note-security';
 
 interface NoteActionsProps {
   note: Note;
@@ -9,29 +11,153 @@ interface NoteActionsProps {
   onClose: () => void;
   onUpdate: (updates: Partial<Note>) => void;
   onCreateFolder: (name: string) => boolean;
+  onDuplicate: () => void;
   onDelete: () => void;
 }
 
-const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDelete }: NoteActionsProps) => {
+const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDuplicate, onDelete }: NoteActionsProps) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [showLockPicker, setShowLockPicker] = useState(false);
+  const [showCustomLockSetup, setShowCustomLockSetup] = useState(false);
+  const [showCustomUnlock, setShowCustomUnlock] = useState(false);
   const [folderDraft, setFolderDraft] = useState('');
+  const [tagDraft, setTagDraft] = useState('');
+  const [customPasscode, setCustomPasscode] = useState('');
+  const [customPasscodeConfirm, setCustomPasscodeConfirm] = useState('');
+  const [unlockPasscode, setUnlockPasscode] = useState('');
+  const [lockError, setLockError] = useState('');
+  const [isBusy, setIsBusy] = useState(false);
+
+  const updateAndClose = (updates: Partial<Note>) => {
+    onUpdate(updates);
+    onClose();
+  };
+
+  const handleCopyNote = async () => {
+    try {
+      const text = `${note.title}\n\n${note.content}`.trim();
+      await navigator.clipboard.writeText(text);
+      onClose();
+    } catch {
+      // Ignore clipboard errors in unsupported contexts.
+    }
+  };
+
+  const handleShareNote = async () => {
+    const text = `${note.title}\n\n${note.content}`.trim();
+
+    try {
+      const capability = await CapacitorShare.canShare();
+      if (capability.value) {
+        await CapacitorShare.share({
+          title: note.title,
+          text,
+          dialogTitle: 'Share note',
+        });
+        onClose();
+        return;
+      }
+    } catch {
+      // Fall through to web share fallback.
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: note.title, text });
+        onClose();
+      } catch {
+        // User cancelled or share unavailable.
+      }
+      return;
+    }
+
+    await handleCopyNote();
+  };
+
+  const handleDeviceLock = async () => {
+    setIsBusy(true);
+    setLockError('');
+    const authenticated = await authenticateWithDeviceLock('Lock note', 'Confirm with device lock to protect this note');
+    setIsBusy(false);
+
+    if (!authenticated) {
+      setLockError('Device authentication failed. Please try again.');
+      return;
+    }
+
+    updateAndClose({ locked: true, lockType: 'device', customLockHash: null });
+  };
+
+  const handleSetupCustomLock = async () => {
+    if (!customPasscode.trim() || customPasscode.length < 4) {
+      setLockError('Enter a passcode with at least 4 characters.');
+      return;
+    }
+
+    if (customPasscode !== customPasscodeConfirm) {
+      setLockError('Passcodes do not match.');
+      return;
+    }
+
+    setIsBusy(true);
+    setLockError('');
+    const lockHash = await hashSecret(customPasscode);
+    setIsBusy(false);
+    updateAndClose({ locked: true, lockType: 'custom', customLockHash: lockHash });
+  };
+
+  const handleUnlockNote = async () => {
+    if (note.lockType === 'custom') {
+      setShowCustomUnlock(true);
+      setLockError('');
+      return;
+    }
+
+    setIsBusy(true);
+    setLockError('');
+    const authenticated = await authenticateWithDeviceLock('Unlock note', 'Confirm with device lock to unlock this note');
+    setIsBusy(false);
+
+    if (!authenticated) {
+      setLockError('Unable to verify identity.');
+      return;
+    }
+
+    updateAndClose({ locked: false, lockType: 'none', customLockHash: null });
+  };
+
+  const handleCustomUnlockSubmit = async () => {
+    setIsBusy(true);
+    setLockError('');
+    const valid = await verifySecret(unlockPasscode, note.customLockHash);
+    setIsBusy(false);
+
+    if (!valid) {
+      setLockError('Incorrect passcode.');
+      return;
+    }
+
+    updateAndClose({ locked: false, lockType: 'none', customLockHash: null });
+  };
 
   const actions = [
-    { icon: Pin, label: note.pinned ? 'Unpin' : 'Pin', action: () => onUpdate({ pinned: !note.pinned }) },
-    { icon: Star, label: note.favorite ? 'Unfavorite' : 'Favorite', action: () => onUpdate({ favorite: !note.favorite }) },
-    { icon: Palette, label: 'Color', action: () => {} },
+    { icon: Pin, label: note.pinned ? 'Unpin' : 'Pin', action: () => updateAndClose({ pinned: !note.pinned }) },
+    { icon: Star, label: note.favorite ? 'Unfavorite' : 'Favorite', action: () => updateAndClose({ favorite: !note.favorite }) },
+    { icon: Copy, label: 'Duplicate', action: () => { onDuplicate(); onClose(); } },
     { icon: FolderOpen, label: 'Move', action: () => setShowFolderPicker((current) => !current) },
-    { icon: Tag, label: 'Tag', action: () => {} },
-    { icon: Lock, label: note.locked ? 'Unlock' : 'Lock', action: () => onUpdate({ locked: !note.locked }) },
-    { icon: Archive, label: note.archived ? 'Unarchive' : 'Archive', action: () => onUpdate({ archived: !note.archived }) },
-    { icon: Share, label: 'Share', action: () => {} },
+    { icon: Tag, label: 'Tag', action: () => setShowTagEditor((current) => !current) },
+    { icon: Lock, label: note.locked ? 'Unlock' : 'Lock', action: () => (note.locked ? handleUnlockNote() : setShowLockPicker((current) => !current)) },
+    { icon: Archive, label: note.archived ? 'Unarchive' : 'Archive', action: () => updateAndClose({ archived: !note.archived }) },
+    { icon: Share, label: 'Share', action: () => handleShareNote() },
   ];
   const availableFolders = Array.from(new Set(folders.filter(Boolean)));
 
   const handleMoveToFolder = (folder: string | null) => {
     onUpdate({ folder });
     setShowFolderPicker(false);
+    onClose();
   };
 
   const handleCreateFolder = () => {
@@ -43,6 +169,29 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDelet
     onUpdate({ folder: folderDraft.trim() });
     setFolderDraft('');
     setShowFolderPicker(false);
+    onClose();
+  };
+
+  const normalizedTags = Array.from(new Set(note.tags.map((tag) => tag.trim()).filter(Boolean)));
+
+  const handleAddTag = () => {
+    const next = tagDraft.trim();
+    if (!next) {
+      return;
+    }
+
+    const exists = normalizedTags.some((tag) => tag.toLowerCase() === next.toLowerCase());
+    if (exists) {
+      setTagDraft('');
+      return;
+    }
+
+    onUpdate({ tags: [...normalizedTags, next] });
+    setTagDraft('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    onUpdate({ tags: normalizedTags.filter((tag) => tag !== tagToRemove) });
   };
 
   if (confirmDelete) {
@@ -152,6 +301,117 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDelet
               </button>
             </div>
           </div>
+        )}
+        {showTagEditor && (
+          <div className="border-t border-border px-4 pb-4">
+            <h4 className="pt-4 text-sm font-medium text-foreground">Tags</h4>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {normalizedTags.length > 0 ? normalizedTags.map((tag) => (
+                <button
+                  key={tag}
+                  onClick={() => handleRemoveTag(tag)}
+                  className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
+                  title="Remove tag"
+                >
+                  #{tag}
+                </button>
+              )) : (
+                <p className="text-xs text-muted-foreground">No tags yet. Add one below.</p>
+              )}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <input
+                value={tagDraft}
+                onChange={(event) => setTagDraft(event.target.value)}
+                placeholder="Add tag"
+                className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={handleAddTag}
+                disabled={!tagDraft.trim()}
+                className="rounded-xl bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+        {showLockPicker && !note.locked && (
+          <div className="border-t border-border px-4 pb-4">
+            <h4 className="pt-4 text-sm font-medium text-foreground">Lock this note</h4>
+            <p className="mt-1 text-xs text-muted-foreground">Choose your protection method.</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={handleDeviceLock}
+                disabled={isBusy}
+                className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
+              >
+                Use Device Lock
+              </button>
+              <button
+                onClick={() => {
+                  setShowCustomLockSetup((current) => !current);
+                  setLockError('');
+                }}
+                disabled={isBusy}
+                className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
+              >
+                Create New Lock
+              </button>
+            </div>
+            {showCustomLockSetup && (
+              <div className="mt-3 space-y-2">
+                <input
+                  value={customPasscode}
+                  onChange={(event) => setCustomPasscode(event.target.value)}
+                  placeholder="Enter passcode"
+                  type="password"
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <input
+                  value={customPasscodeConfirm}
+                  onChange={(event) => setCustomPasscodeConfirm(event.target.value)}
+                  placeholder="Confirm passcode"
+                  type="password"
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <button
+                  onClick={handleSetupCustomLock}
+                  disabled={isBusy}
+                  className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm text-background"
+                >
+                  Save Lock
+                </button>
+              </div>
+            )}
+            {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
+          </div>
+        )}
+        {showCustomUnlock && (
+          <div className="border-t border-border px-4 pb-4">
+            <h4 className="pt-4 text-sm font-medium text-foreground">Unlock note</h4>
+            <p className="mt-1 text-xs text-muted-foreground">Enter your custom passcode.</p>
+            <div className="mt-3 flex gap-2">
+              <input
+                value={unlockPasscode}
+                onChange={(event) => setUnlockPasscode(event.target.value)}
+                placeholder="Passcode"
+                type="password"
+                className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              <button
+                onClick={handleCustomUnlockSubmit}
+                disabled={isBusy || !unlockPasscode.trim()}
+                className="rounded-xl bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
+              >
+                Unlock
+              </button>
+            </div>
+            {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
+          </div>
+        )}
+        {!!lockError && !showCustomUnlock && !showLockPicker && (
+          <p className="px-4 pb-2 text-xs text-destructive">{lockError}</p>
         )}
         <div className="px-4 pb-8">
           <button

@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
 import type { Note, NoteFont } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
+import { verifySecret, authenticateWithDeviceLock } from '@/lib/note-security';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
 import Onboarding from '@/components/Onboarding';
 import NotesList from '@/components/NotesList';
@@ -21,6 +22,10 @@ const Index = () => {
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNoteFolderPath, setNewNoteFolderPath] = useState<string | null>(null);
+  const [unlockingNote, setUnlockingNote] = useState<Note | null>(null);
+  const [unlockInput, setUnlockInput] = useState('');
+  const [unlockError, setUnlockError] = useState('');
+  const [unlockBusy, setUnlockBusy] = useState(false);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const handleCreateFolder = useCallback((name: string) => {
     const trimmed = name.trim();
@@ -73,11 +78,61 @@ const Index = () => {
     setView('editor');
   }, []);
 
-  const handleOpenNote = useCallback((note: Note) => {
+  const handleOpenNote = useCallback(async (note: Note) => {
+    if (note.locked) {
+      if (note.lockType === 'custom') {
+        setUnlockingNote(note);
+        setUnlockInput('');
+        setUnlockError('');
+        return;
+      }
+
+      const authenticated = await authenticateWithDeviceLock('Unlock note', 'Confirm with your device lock to open this note.');
+      if (!authenticated) {
+        return;
+      }
+    }
+
     setNewNoteFolderPath(null);
     setEditingNote(note);
     setView('editor');
   }, []);
+
+  const handleDuplicateNote = useCallback((note: Note) => {
+    const duplicated = addNote(`${note.title} (copy)`, note.content, note.folder);
+    updateNote(duplicated.id, {
+      pinned: note.pinned,
+      favorite: note.favorite,
+      tags: [...note.tags],
+      fontFamily: note.fontFamily,
+      locked: false,
+      lockType: 'none',
+      customLockHash: null,
+    });
+  }, [addNote, updateNote]);
+
+  const handleUnlockCustomNote = useCallback(async () => {
+    if (!unlockingNote) {
+      return;
+    }
+
+    setUnlockBusy(true);
+    setUnlockError('');
+    const valid = await verifySecret(unlockInput, unlockingNote.customLockHash);
+    setUnlockBusy(false);
+
+    if (!valid) {
+      setUnlockError('Incorrect passcode.');
+      return;
+    }
+
+    setUnlockingNote(null);
+    setUnlockInput('');
+    setUnlockError('');
+    setNewNoteFolderPath(null);
+    setEditingNote(unlockingNote);
+    setView('editor');
+  }, [unlockingNote, unlockInput]);
 
   const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number; fontFamily: NoteFont }) => {
     if (editingNote) {
@@ -146,6 +201,7 @@ const Index = () => {
         onCreateFolder={handleCreateFolder}
         onUpdateNote={updateNote}
         onDeleteNote={deleteNote}
+        onDuplicateNote={handleDuplicateNote}
       />
 
       <AnimatePresence>
@@ -202,6 +258,52 @@ const Index = () => {
             onCloudSignOut={cloudBackup.signOut}
             onCloudUpload={cloudBackup.upload}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {unlockingNote && (
+          <div className="fixed inset-0 z-[70]">
+            <div
+              onClick={() => {
+                setUnlockingNote(null);
+                setUnlockInput('');
+                setUnlockError('');
+              }}
+              className="absolute inset-0 bg-background/70 backdrop-blur-sm"
+            />
+            <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 mx-auto max-w-sm rounded-2xl border border-border bg-card p-6">
+              <h3 className="text-base font-semibold text-foreground">Unlock note</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Enter your custom passcode to open this note.</p>
+              <input
+                value={unlockInput}
+                onChange={(event) => setUnlockInput(event.target.value)}
+                type="password"
+                placeholder="Passcode"
+                className="mt-4 w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              {unlockError && <p className="mt-2 text-xs text-destructive">{unlockError}</p>}
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => {
+                    setUnlockingNote(null);
+                    setUnlockInput('');
+                    setUnlockError('');
+                  }}
+                  className="flex-1 rounded-xl border border-border py-2.5 text-sm text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUnlockCustomNote}
+                  disabled={unlockBusy || !unlockInput.trim()}
+                  className="flex-1 rounded-xl bg-foreground py-2.5 text-sm text-background disabled:opacity-50"
+                >
+                  Unlock
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </div>

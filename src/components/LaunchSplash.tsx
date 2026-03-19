@@ -49,9 +49,6 @@ const LaunchSplash = ({ visible, isAmoledBranding = false }: LaunchSplashProps) 
                   className="w-[15.5rem] max-w-[82vw] select-none pointer-events-none"
                   draggable={false}
                 />
-                <p className="mt-3 text-sm italic leading-relaxed tracking-[0.03em] text-muted-foreground/90 lowercase">
-                  crafted for clarity
-                </p>
               </motion.div>
             ) : (
               <motion.div
@@ -66,11 +63,17 @@ const LaunchSplash = ({ visible, isAmoledBranding = false }: LaunchSplashProps) 
                   className="w-[15.5rem] max-w-[82vw] select-none pointer-events-none"
                   draggable={false}
                 />
-                <p className="mt-3 text-sm italic leading-relaxed tracking-[0.03em] text-muted-foreground/90 lowercase">
-                  crafted for clarity
-                </p>
               </motion.div>
             )}
+
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 0.9, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.28, ease: 'easeOut' }}
+              className="absolute bottom-[calc(var(--safe-area-bottom)+4.75rem)] text-sm italic leading-relaxed tracking-[0.03em] text-muted-foreground/90 lowercase"
+            >
+              crafted for clarity
+            </motion.p>
 
             <motion.div
               initial={{ opacity: 0, y: 10 }}

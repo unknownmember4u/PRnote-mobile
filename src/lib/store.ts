@@ -10,11 +10,15 @@ export interface Note {
   favorite: boolean;
   archived: boolean;
   locked: boolean;
+  lockType: NoteLockType;
+  customLockHash: string | null;
   color: string | null;
   tags: string[];
   folder: string | null;
   fontFamily: NoteFont;
 }
+
+export type NoteLockType = 'none' | 'device' | 'custom';
 
 export type NoteFont = 'playfair' | 'rustico' | 'priestacy' | 'great-vibes' | 'whispering' | 'allura';
 
@@ -123,7 +127,12 @@ function loadNotes(): Note[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.map((note) => ({ ...note, fontFamily: note.fontFamily ?? 'playfair' }))
+      ? parsed.map((note) => ({
+          ...note,
+          fontFamily: note.fontFamily ?? 'playfair',
+          lockType: note.lockType ?? (note.locked ? 'device' : 'none'),
+          customLockHash: note.customLockHash ?? null,
+        }))
       : [];
   } catch { return []; }
 }
@@ -143,6 +152,7 @@ export function useNotes() {
       title, content,
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
+      lockType: 'none', customLockHash: null,
       color: null, tags: [], folder, fontFamily: 'playfair',
     };
     setNotes(prev => [note, ...prev]);
