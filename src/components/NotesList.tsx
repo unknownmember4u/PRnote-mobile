@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
 import type { Note } from '@/lib/store';
-import prnoteAmoledMark from '@/assets/branding/prnote-amoled-mark.png';
-import prnoteLightMark from '@/assets/branding/prnote-light-mark.png';
 import NoteActions from './NoteActions';
 
 interface NotesListProps {
@@ -17,12 +15,11 @@ interface NotesListProps {
   onCreateFolder: (name: string) => boolean;
   onUpdateNote: (id: string, updates: Partial<Note>) => void;
   onDeleteNote: (id: string) => void;
-  isAmoledTheme?: boolean;
 }
 
 type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged';
 
-const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote, isAmoledTheme = false }: NotesListProps) => {
+const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote }: NotesListProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
   const [actionNote, setActionNote] = useState<Note | null>(null);
   const [showArchivedView, setShowArchivedView] = useState(false);
@@ -157,21 +154,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
             </>
           ) : (
             <>
-              {isAmoledTheme ? (
-                <img
-                  src={prnoteAmoledMark}
-                  alt="PRnote"
-                  className="h-9 w-auto select-none pointer-events-none"
-                  draggable={false}
-                />
-              ) : (
-                <img
-                  src={prnoteLightMark}
-                  alt="PRnote"
-                  className="h-9 w-auto select-none pointer-events-none"
-                  draggable={false}
-                />
-              )}
+              <h1 className="font-serif-display text-2xl font-semibold text-foreground">PRnote</h1>
               <div className="flex items-center gap-1">
                 <button
                   onClick={() => setShowArchivedView(true)}
