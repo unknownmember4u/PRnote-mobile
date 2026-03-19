@@ -34,7 +34,7 @@ export interface AppSettings {
 }
 
 const defaultSettings: AppSettings = {
-  theme: 'dark',
+  theme: 'light',
   spellCheck: true,
   defaultFont: 'Fraunces',
   folders: [],
@@ -174,7 +174,12 @@ export function useSettings() {
       
       // Migrate old darkMode setting
       if ('darkMode' in parsed && !('theme' in parsed)) {
-        parsed.theme = parsed.darkMode ? 'dark' : 'light';
+        parsed.theme = parsed.darkMode ? 'amoled' : 'light';
+      }
+
+      // Migrate removed "dark" theme to AMOLED
+      if (parsed.theme === 'dark') {
+        parsed.theme = 'amoled';
       }
       
       // Migrate flat folder array to tree structure

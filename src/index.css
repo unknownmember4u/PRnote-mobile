@@ -60,64 +60,64 @@ html, body, #root {
     --pr-surface: 0 0% 95%;
   }
 
-  /* Dark mode - overridden to light (permanent off-white) */
+  /* Legacy dark mode maps to AMOLED palette */
   .dark {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
-    --primary: 0 0% 12%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 12%;
-    --muted: 0 0% 90%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 0 0% 93%;
-    --accent-foreground: 0 0% 12%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 93%;
-    --ring: 0 0% 12%;
+    --border: 0 0% 22%;
+    --input: 0 0% 10%;
+    --ring: 0 0% 100%;
     --radius: 0.75rem;
 
-    --pr-black: 0 0% 98%;
-    --pr-input: 0 0% 93%;
-    --pr-border: 0 0% 88%;
-    --pr-gray: 0 0% 40%;
-    --pr-surface: 0 0% 95%;
+    --pr-black: 0 0% 0%;
+    --pr-input: 0 0% 10%;
+    --pr-border: 0 0% 22%;
+    --pr-gray: 0 0% 70%;
+    --pr-surface: 0 0% 8%;
   }
 
-  /* AMOLED mode - also light (permanent off-white) */
+  /* AMOLED mode - true high contrast */
   .amoled {
-    --background: 0 0% 98%;
-    --foreground: 0 0% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 8%;
-    --primary: 0 0% 12%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 93%;
-    --secondary-foreground: 0 0% 12%;
-    --muted: 0 0% 90%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 0 0% 93%;
-    --accent-foreground: 0 0% 12%;
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 6%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 12%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 0% 12%;
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 93%;
-    --ring: 0 0% 12%;
+    --border: 0 0% 22%;
+    --input: 0 0% 10%;
+    --ring: 0 0% 100%;
     --radius: 0.75rem;
 
-    --pr-black: 0 0% 98%;
-    --pr-input: 0 0% 93%;
-    --pr-border: 0 0% 88%;
-    --pr-gray: 0 0% 40%;
-    --pr-surface: 0 0% 95%;
+    --pr-black: 0 0% 0%;
+    --pr-input: 0 0% 10%;
+    --pr-border: 0 0% 22%;
+    --pr-gray: 0 0% 70%;
+    --pr-surface: 0 0% 8%;
   }
 }
 

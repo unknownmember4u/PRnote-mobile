@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, Moon, Sun, Monitor, Download, Trash2, Cloud, CloudUpload, LogIn, LogOut } from 'lucide-react';
+import { ArrowLeft, Sun, Monitor, Download, Trash2, Cloud, CloudUpload, LogIn, LogOut } from 'lucide-react';
 import type { AppSettings, ThemeMode } from '@/lib/store';
 
 interface SettingsViewProps {
@@ -35,7 +35,6 @@ const SettingsView = ({
 }: SettingsViewProps) => {
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
-    { mode: 'dark', label: 'Dark', icon: Moon },
     { mode: 'amoled', label: 'AMOLED', icon: Monitor },
   ];
 
