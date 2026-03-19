@@ -47,7 +47,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => onOpenNote(note)}
-      className="w-full text-left p-4 rounded-2xl bg-card border border-border hover:border-muted-foreground/30 transition-colors"
+      className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border hover:border-muted-foreground/30 transition-colors"
     >
       <div className="flex justify-between items-start">
         <h3 className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</h3>

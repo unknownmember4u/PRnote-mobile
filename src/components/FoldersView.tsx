@@ -328,7 +328,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
                 <button
                   key={note.id}
                   onClick={() => onOpenNote(note)}
-                  className="w-full rounded-2xl border border-border bg-card px-5 py-4 text-left transition-colors hover:bg-card/80"
+                  className="w-full rounded-2xl border border-border bg-[hsl(var(--pr-surface))] px-5 py-4 text-left transition-colors hover:bg-secondary"
                 >
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <p className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</p>
@@ -339,7 +339,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
                     )}
                   </div>
                   {note.content && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">{note.content}</p>
+                    <p className="text-sm italic text-muted-foreground line-clamp-2">{note.content}</p>
                   )}
                 </button>
               ))}

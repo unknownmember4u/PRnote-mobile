@@ -87,7 +87,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
                 <button
                   key={n.id}
                   onClick={() => onOpenNote(n)}
-                  className="w-full text-left p-4 rounded-xl bg-card border border-border"
+                  className="w-full text-left p-4 rounded-xl bg-[hsl(var(--pr-surface))] border border-border"
                 >
                   <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
                   <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{n.content}</p>
@@ -114,7 +114,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
                     <button
                       key={n.id}
                       onClick={() => onOpenNote(n)}
-                      className="w-full text-left p-4 rounded-xl bg-card border border-border"
+                      className="w-full text-left p-4 rounded-xl bg-[hsl(var(--pr-surface))] border border-border"
                     >
                       <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
                     </button>

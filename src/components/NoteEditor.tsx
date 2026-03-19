@@ -50,7 +50,7 @@ const NoteEditor = ({ initialTitle = '', initialContent = '', onSave, onBack }: 
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-lg text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
+          className="w-full bg-transparent text-lg italic text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
         />
       </div>
 
