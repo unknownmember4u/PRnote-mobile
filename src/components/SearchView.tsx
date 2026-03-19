@@ -13,17 +13,18 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
   const [query, setQuery] = useState('');
   const [listening, setListening] = useState(false);
 
-  const allTags = useMemo(() => {
-    const tags = new Set<string>();
-    notes.forEach(n => n.tags.forEach(t => tags.add(t)));
-    return Array.from(tags);
+  const priorities = useMemo(() => {
+    const levels: Array<'high' | 'medium' | 'low'> = ['high', 'medium', 'low'];
+    return levels.filter((level) => notes.some((n) => n.priority === level && !n.archived));
   }, [notes]);
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
     return notes.filter(n =>
-      n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q)
+      n.title.toLowerCase().includes(q) ||
+      n.content.toLowerCase().includes(q) ||
+      (n.priority !== 'none' && `${n.priority} priority`.includes(q))
     );
   }, [query, notes]);
 
@@ -103,7 +104,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
           </div>
         )}
 
-        {/* Recent & tags when no query */}
+        {/* Recent & priority when no query */}
         {!query && (
           <>
             {recent.length > 0 && (
@@ -122,17 +123,17 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
                 </div>
               </div>
             )}
-            {allTags.length > 0 && (
+            {priorities.length > 0 && (
               <div className="py-4">
-                <p className="text-sm font-semibold text-muted-foreground mb-4">Tags</p>
+                <p className="text-sm font-semibold text-muted-foreground mb-4">Priority</p>
                 <div className="flex flex-wrap gap-3">
-                  {allTags.map(tag => (
+                  {priorities.map((priority) => (
                     <button
-                      key={tag}
-                      onClick={() => setQuery(tag)}
+                      key={priority}
+                      onClick={() => setQuery(`${priority} priority`)}
                       className="px-4 py-2 rounded-full bg-secondary text-sm font-medium text-muted-foreground"
                     >
-                      #{tag}
+                      {priority.charAt(0).toUpperCase() + priority.slice(1)}
                     </button>
                   ))}
                 </div>

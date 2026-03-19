@@ -9,6 +9,14 @@
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
+  --native-safe-top: 0px;
+  --native-safe-right: 0px;
+  --native-safe-bottom: 0px;
+  --native-safe-left: 0px;
+  --app-safe-top: max(var(--safe-area-top), var(--native-safe-top));
+  --app-safe-right: max(var(--safe-area-right), var(--native-safe-right));
+  --app-safe-bottom: max(var(--safe-area-bottom), var(--native-safe-bottom));
+  --app-safe-left: max(var(--safe-area-left), var(--native-safe-left));
   --keyboard-offset: 0px;
   --fab-edge-gap: clamp(1rem, 4vw, 1.5rem);
   --fab-size: 3.5rem;
@@ -160,22 +168,25 @@ html, body, #root {
     min-height: 100vh;
     min-height: 100dvh;
     max-height: 100dvh;
-    padding-right: var(--safe-area-right);
-    padding-left: var(--safe-area-left);
+    padding-top: var(--app-safe-top);
+    padding-bottom: calc(var(--app-safe-bottom) + var(--keyboard-offset));
+    padding-right: var(--app-safe-right);
+    padding-left: var(--app-safe-left);
+    box-sizing: border-box;
   }
   .android-shell {
     max-width: 100%;
   }
   .safe-top {
-    padding-top: calc(var(--safe-area-top) + 0.375rem);
+    padding-top: 0.375rem;
   }
   .safe-bottom {
-    padding-bottom: calc(var(--safe-area-bottom) + var(--keyboard-offset) + 1rem);
+    padding-bottom: 1rem;
   }
   .safe-bottom-fab {
-    bottom: calc(var(--safe-area-bottom) + var(--keyboard-offset) + var(--fab-edge-gap));
+    bottom: calc(var(--app-safe-bottom) + var(--keyboard-offset) + var(--fab-edge-gap));
   }
   .safe-right-fab {
-    right: calc(var(--safe-area-right) + var(--fab-edge-gap));
+    right: calc(var(--app-safe-right) + var(--fab-edge-gap));
   }
 }

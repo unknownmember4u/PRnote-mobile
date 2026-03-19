@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Tag, ChevronDown, FilePlus2, FolderPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Zap, ChevronDown, FilePlus2, FolderPlus, Trash2 } from 'lucide-react';
 import type { Note, FolderNode } from '@/lib/store';
 import { flattenFolderTree } from '@/lib/store';
 
@@ -17,6 +17,7 @@ interface FoldersViewProps {
 type SmartFolderKey = 'all' | 'favorites' | 'recent';
 type ActiveView =
   | { type: 'smart'; key: SmartFolderKey; label: string; path: string }
+  | { type: 'priority'; priority: 'low' | 'medium' | 'high'; label: string }
   | { type: 'folder'; path: string; label: string };
 
 const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder, onCreateNoteInFolder, onOpenNote }: FoldersViewProps) => {
@@ -36,6 +37,16 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
 
   const allFolderPaths = useMemo(() => flattenFolderTree(folderTree), [folderTree]);
 
+  const priorities = useMemo(() => {
+    const order: Array<'high' | 'medium' | 'low'> = ['high', 'medium', 'low'];
+    return order
+      .map((priority) => ({
+        priority,
+        count: notes.filter((note) => note.priority === priority && !note.archived).length,
+      }))
+      .filter((item) => item.count > 0);
+  }, [notes]);
+
   const folderCounts = useMemo(() => {
     const map = new Map<string, number>();
 
@@ -52,14 +63,10 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
     return Array.from(map.entries()).sort((left, right) => left[0].localeCompare(right[0]));
   }, [allFolderPaths, notes]);
 
-  const tags = useMemo(() => {
-    const set = new Set<string>();
-    notes.forEach((note) => note.tags.forEach((tag) => set.add(tag)));
-    return Array.from(set);
-  }, [notes]);
-
   const visibleNotes = useMemo(() => {
     switch (activeView.type) {
+      case 'priority':
+        return notes.filter((note) => note.priority === activeView.priority && !note.archived);
       case 'folder':
         return notes.filter((note) => note.folder === activeView.path && !note.archived);
       case 'smart':
@@ -348,14 +355,27 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
           <p className="mb-8 text-base text-muted-foreground italic">No folders yet. Create a root folder above to get started.</p>
         )}
 
-        {tags.length > 0 && (
+        {priorities.length > 0 && (
           <>
-            <p className="text-sm text-muted-foreground font-semibold mb-4">Tags</p>
+            <p className="text-sm text-muted-foreground font-semibold mb-4">Priority</p>
             <div className="flex flex-wrap gap-2 mb-8">
-              {tags.map((tag) => (
-                <span key={tag} className="px-4 py-2 rounded-full bg-secondary text-sm text-muted-foreground font-medium">
-                  <Tag size={12} className="inline mr-2" />{tag}
-                </span>
+              {priorities.map(({ priority, count }) => (
+                <button
+                  key={priority}
+                  onClick={() => setActiveView({
+                    type: 'priority',
+                    priority,
+                    label: `${priority.charAt(0).toUpperCase()}${priority.slice(1)} Priority`,
+                  })}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    activeView.type === 'priority' && activeView.priority === priority
+                      ? 'bg-foreground text-background'
+                      : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
+                  }`}
+                >
+                  <Zap size={12} className="inline mr-2" />
+                  {priority.charAt(0).toUpperCase() + priority.slice(1)} ({count})
+                </button>
               ))}
             </div>
           </>

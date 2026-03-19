@@ -18,7 +18,7 @@ interface NotesListProps {
   onDuplicateNote: (note: Note) => void;
 }
 
-type TabType = 'All' | 'Pinned' | 'Favorites' | 'Tagged';
+type TabType = 'All' | 'Pinned' | 'Favorites' | 'Priority';
 
 const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpenSettings, onOpenFolders, onCreateFolder, onUpdateNote, onDeleteNote, onDuplicateNote }: NotesListProps) => {
   const [activeTab, setActiveTab] = useState<TabType>('All');
@@ -26,7 +26,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   const [showArchivedView, setShowArchivedView] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
-  const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged'];
+  const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Priority'];
 
   const startLongPress = (note: Note) => {
     if (longPressTimerRef.current) {
@@ -78,7 +78,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
     switch (activeTab) {
       case 'Pinned': return n.pinned && !n.archived;
       case 'Favorites': return n.favorite && !n.archived;
-      case 'Tagged': return n.tags.length > 0 && !n.archived;
+      case 'Priority': return n.priority !== 'none' && !n.archived;
       default: return !n.archived;
     }
   });

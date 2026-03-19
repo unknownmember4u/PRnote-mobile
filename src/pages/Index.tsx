@@ -103,7 +103,7 @@ const Index = () => {
     updateNote(duplicated.id, {
       pinned: note.pinned,
       favorite: note.favorite,
-      tags: [...note.tags],
+      priority: note.priority,
       fontFamily: note.fontFamily,
       locked: false,
       lockType: 'none',
@@ -165,10 +165,8 @@ const Index = () => {
   }, [editingNote, updateNote, addNote, newNoteFolderPath]);
 
   const handleClearAll = useCallback(() => {
-    if (confirm('Are you sure you want to delete all notes?')) {
-      notes.forEach(n => deleteNote(n.id));
-    }
-  }, [notes, deleteNote]);
+    setNotes([]);
+  }, [setNotes]);
 
   const handleExport = useCallback(() => {
     const data = JSON.stringify(notes, null, 2);
@@ -254,6 +252,7 @@ const Index = () => {
           <SettingsView
             key="settings"
             settings={settings}
+            noteCount={notes.length}
             onUpdate={updateSettings}
             onBack={() => setView('list')}
             onClearAll={handleClearAll}

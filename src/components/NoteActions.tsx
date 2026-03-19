@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Pin, Star, Copy, FolderOpen, Tag, Lock, Archive, Share, Trash2, AlertTriangle } from 'lucide-react';
+import { Pin, Star, Copy, FolderOpen, Zap, Lock, Archive, Share, Trash2, AlertTriangle } from 'lucide-react';
 import { Share as CapacitorShare } from '@capacitor/share';
-import type { Note } from '@/lib/store';
+import type { Note, NotePriority } from '@/lib/store';
 import { authenticateWithDeviceLock, hashSecret, verifySecret } from '@/lib/note-security';
 
 interface NoteActionsProps {
@@ -18,12 +18,11 @@ interface NoteActionsProps {
 const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDuplicate, onDelete }: NoteActionsProps) => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
-  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [showLockPicker, setShowLockPicker] = useState(false);
   const [showCustomLockSetup, setShowCustomLockSetup] = useState(false);
   const [showCustomUnlock, setShowCustomUnlock] = useState(false);
   const [folderDraft, setFolderDraft] = useState('');
-  const [tagDraft, setTagDraft] = useState('');
   const [customPasscode, setCustomPasscode] = useState('');
   const [customPasscodeConfirm, setCustomPasscodeConfirm] = useState('');
   const [unlockPasscode, setUnlockPasscode] = useState('');
@@ -147,11 +146,12 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     { icon: Star, label: note.favorite ? 'Unfavorite' : 'Favorite', action: () => updateAndClose({ favorite: !note.favorite }) },
     { icon: Copy, label: 'Duplicate', action: () => { onDuplicate(); onClose(); } },
     { icon: FolderOpen, label: 'Move', action: () => setShowFolderPicker((current) => !current) },
-    { icon: Tag, label: 'Tag', action: () => setShowTagEditor((current) => !current) },
+    { icon: Zap, label: 'Priority', action: () => setShowPriorityPicker((current) => !current) },
     { icon: Lock, label: note.locked ? 'Unlock' : 'Lock', action: () => (note.locked ? handleUnlockNote() : setShowLockPicker((current) => !current)) },
     { icon: Archive, label: note.archived ? 'Unarchive' : 'Archive', action: () => updateAndClose({ archived: !note.archived }) },
     { icon: Share, label: 'Share', action: () => handleShareNote() },
   ];
+
   const availableFolders = Array.from(new Set(folders.filter(Boolean)));
 
   const handleMoveToFolder = (folder: string | null) => {
@@ -170,28 +170,6 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     setFolderDraft('');
     setShowFolderPicker(false);
     onClose();
-  };
-
-  const normalizedTags = Array.from(new Set(note.tags.map((tag) => tag.trim()).filter(Boolean)));
-
-  const handleAddTag = () => {
-    const next = tagDraft.trim();
-    if (!next) {
-      return;
-    }
-
-    const exists = normalizedTags.some((tag) => tag.toLowerCase() === next.toLowerCase());
-    if (exists) {
-      setTagDraft('');
-      return;
-    }
-
-    onUpdate({ tags: [...normalizedTags, next] });
-    setTagDraft('');
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    onUpdate({ tags: normalizedTags.filter((tag) => tag !== tagToRemove) });
   };
 
   if (confirmDelete) {
@@ -255,6 +233,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
             </button>
           ))}
         </div>
+
         {showFolderPicker && (
           <div className="border-t border-border px-4 pb-4">
             <div className="flex items-center justify-between pt-4">
@@ -302,40 +281,48 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
             </div>
           </div>
         )}
-        {showTagEditor && (
+
+        {showPriorityPicker && (
           <div className="border-t border-border px-4 pb-4">
-            <h4 className="pt-4 text-sm font-medium text-foreground">Tags</h4>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {normalizedTags.length > 0 ? normalizedTags.map((tag) => (
+            <h4 className="pt-4 text-sm font-medium text-foreground">Set Priority Level</h4>
+            <p className="mt-1 text-xs text-muted-foreground">Choose how important this note is.</p>
+            <div className="mt-4 space-y-2">
+              {(['none', 'low', 'medium', 'high'] as const).map((priority) => (
                 <button
-                  key={tag}
-                  onClick={() => handleRemoveTag(tag)}
-                  className="rounded-full border border-border px-3 py-2 text-xs text-foreground"
-                  title="Remove tag"
+                  key={priority}
+                  onClick={() => {
+                    onUpdate({ priority });
+                    setShowPriorityPicker(false);
+                    onClose();
+                  }}
+                  className={`w-full text-left py-3 px-4 rounded-xl border transition-colors ${
+                    note.priority === priority
+                      ? 'border-foreground bg-secondary'
+                      : 'border-border hover:border-foreground/50'
+                  }`}
                 >
-                  #{tag}
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm font-medium ${
+                      priority === 'high' ? 'text-red-500' :
+                      priority === 'medium' ? 'text-amber-500' :
+                      priority === 'low' ? 'text-blue-500' :
+                      'text-muted-foreground'
+                    }`}>
+                      {priority === 'none' ? 'No Priority' :
+                       priority === 'low' ? 'Low Priority' :
+                       priority === 'medium' ? 'Medium Priority' :
+                       'High Priority'}
+                    </span>
+                    {note.priority === priority && (
+                      <span className="text-foreground">✓</span>
+                    )}
+                  </div>
                 </button>
-              )) : (
-                <p className="text-xs text-muted-foreground">No tags yet. Add one below.</p>
-              )}
-            </div>
-            <div className="mt-4 flex gap-2">
-              <input
-                value={tagDraft}
-                onChange={(event) => setTagDraft(event.target.value)}
-                placeholder="Add tag"
-                className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                onClick={handleAddTag}
-                disabled={!tagDraft.trim()}
-                className="rounded-xl bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
-              >
-                Add
-              </button>
+              ))}
             </div>
           </div>
         )}
+
         {showLockPicker && !note.locked && (
           <div className="border-t border-border px-4 pb-4">
             <h4 className="pt-4 text-sm font-medium text-foreground">Lock this note</h4>
@@ -387,6 +374,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
             {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
           </div>
         )}
+
         {showCustomUnlock && (
           <div className="border-t border-border px-4 pb-4">
             <h4 className="pt-4 text-sm font-medium text-foreground">Unlock note</h4>
@@ -410,9 +398,11 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
             {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
           </div>
         )}
+
         {!!lockError && !showCustomUnlock && !showLockPicker && (
           <p className="px-4 pb-2 text-xs text-destructive">{lockError}</p>
         )}
+
         <div className="px-4 pb-8">
           <button
             onClick={() => setConfirmDelete(true)}

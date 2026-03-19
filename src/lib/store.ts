@@ -13,12 +13,13 @@ export interface Note {
   lockType: NoteLockType;
   customLockHash: string | null;
   color: string | null;
-  tags: string[];
+  priority: NotePriority;
   folder: string | null;
   fontFamily: NoteFont;
 }
 
 export type NoteLockType = 'none' | 'device' | 'custom';
+export type NotePriority = 'none' | 'low' | 'medium' | 'high';
 
 export type NoteFont = 'playfair' | 'rustico' | 'priestacy' | 'great-vibes' | 'whispering' | 'allura';
 
@@ -132,6 +133,7 @@ function loadNotes(): Note[] {
           fontFamily: note.fontFamily ?? 'playfair',
           lockType: note.lockType ?? (note.locked ? 'device' : 'none'),
           customLockHash: note.customLockHash ?? null,
+          priority: note.priority ?? ((Array.isArray(note.tags) && note.tags.length > 0) ? 'medium' : 'none'),
         }))
       : [];
   } catch { return []; }
@@ -153,7 +155,7 @@ export function useNotes() {
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
       lockType: 'none', customLockHash: null,
-      color: null, tags: [], folder, fontFamily: 'playfair',
+      color: null, priority: 'none', folder, fontFamily: 'playfair',
     };
     setNotes(prev => [note, ...prev]);
     return note;

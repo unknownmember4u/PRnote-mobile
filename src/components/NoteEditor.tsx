@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ArrowLeft, Share, Pin, Star, Type } from 'lucide-react';
+import { ArrowLeft, Share as ShareIcon, Pin, Star, Type } from 'lucide-react';
+import { Share } from '@capacitor/share';
 import type { NoteFont } from '@/lib/store';
 
 const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
@@ -169,6 +170,46 @@ const NoteEditor = ({
     setFontMenuOpen(false);
   }, []);
 
+  const handleShare = useCallback(async () => {
+    const trimmedTitle = title.trim() || 'Untitled';
+    const trimmedContent = content.trim();
+    const shareText = trimmedContent ? `${trimmedTitle}\n\n${trimmedContent}` : trimmedTitle;
+
+    try {
+      const canNativeShare = await Share.canShare();
+      if (canNativeShare.value) {
+        await Share.share({
+          title: trimmedTitle,
+          text: shareText,
+          dialogTitle: 'Share note',
+        });
+        return;
+      }
+    } catch {
+      // Fall through to web and clipboard fallback.
+    }
+
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: trimmedTitle,
+          text: shareText,
+        });
+        return;
+      } catch {
+        // User-cancel and unsupported cases continue to clipboard fallback.
+      }
+    }
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(shareText);
+      } catch {
+        // No-op if clipboard is unavailable.
+      }
+    }
+  }, [title, content]);
+
   const handleBack = useCallback(() => {
     if (hasMeaningfulContent) {
       const payload = buildPayload();
@@ -212,8 +253,8 @@ const NoteEditor = ({
             >
               <Star size={20} className={favorite ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
             </button>
-            <button className="p-2" aria-label="Share note" title="Share note">
-              <Share size={20} className="text-muted-foreground" />
+            <button onClick={handleShare} className="p-2" aria-label="Share note" title="Share note">
+              <ShareIcon size={20} className="text-muted-foreground" />
             </button>
             {/* Font selector root icon */}
             <button

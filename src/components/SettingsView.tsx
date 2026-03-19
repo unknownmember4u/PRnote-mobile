@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Sun, Monitor, Download, Trash2, Cloud, CloudUpload, LogIn, LogOut } from 'lucide-react';
 import type { AppSettings, ThemeMode } from '@/lib/store';
 
 interface SettingsViewProps {
   settings: AppSettings;
+  noteCount: number;
   onUpdate: (updates: Partial<AppSettings>) => void;
   onBack: () => void;
   onClearAll: () => void;
@@ -20,6 +22,7 @@ interface SettingsViewProps {
 
 const SettingsView = ({
   settings,
+  noteCount,
   onUpdate,
   onBack,
   onClearAll,
@@ -33,10 +36,16 @@ const SettingsView = ({
   onCloudSignOut,
   onCloudUpload,
 }: SettingsViewProps) => {
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
     { mode: 'amoled', label: 'AMOLED', icon: Monitor },
   ];
+
+  const handleConfirmClearAll = () => {
+    onClearAll();
+    setShowClearAllConfirm(false);
+  };
 
   return (
     <motion.div
@@ -129,7 +138,10 @@ const SettingsView = ({
             <Download size={22} className="text-muted-foreground" />
             <span className="text-base font-medium">Export Notes</span>
           </button>
-          <button onClick={onClearAll} className="w-full flex items-center gap-4 py-4 text-destructive">
+          <button
+            onClick={() => setShowClearAllConfirm(true)}
+            className="w-full flex items-center gap-4 py-4 text-destructive"
+          >
             <Trash2 size={22} />
             <span className="text-base font-medium">Clear All Notes</span>
           </button>
@@ -137,6 +149,43 @@ const SettingsView = ({
 
         <p className="text-center text-sm text-muted-foreground mt-8">PRnote v2.4.0 • Crafted for clarity.</p>
       </div>
+
+      {showClearAllConfirm && (
+        <div className="fixed inset-0 z-[70]">
+          <div
+            onClick={() => setShowClearAllConfirm(false)}
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            className="absolute inset-x-5 top-1/2 -translate-y-1/2 mx-auto max-w-md rounded-2xl border border-border bg-card p-6 shadow-xl"
+          >
+            <h3 className="text-lg font-semibold text-foreground">Clear all notes?</h3>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              This will permanently delete {noteCount} {noteCount === 1 ? 'note' : 'notes'} from your device.
+              This action cannot be undone.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowClearAllConfirm(false)}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground"
+              >
+                Keep Notes
+              </button>
+              <button
+                onClick={handleConfirmClearAll}
+                disabled={noteCount === 0}
+                className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
+              >
+                Delete All
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </motion.div>
   );
 };
