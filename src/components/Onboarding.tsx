@@ -31,7 +31,6 @@ function SplashStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
       exit={{ opacity: 0 }}
       className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
     >
-      <button onClick={onSkip} className="self-end text-sm text-muted-foreground">Skip</button>
       
       <div className="flex flex-col items-center gap-6 flex-1 justify-center">
         <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center">
@@ -68,7 +67,6 @@ function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
       exit={{ opacity: 0, x: -40 }}
       className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
     >
-      <button onClick={onSkip} className="self-end text-sm text-muted-foreground">Skip</button>
 
       <div className="flex-1 flex flex-col justify-center w-full gap-8">
         <h2 className="font-serif-display text-2xl font-semibold text-foreground">Packed with everything.</h2>
@@ -101,7 +99,6 @@ function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTh
   const [selected, setSelected] = useState<ThemeMode>('dark');
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
-    { mode: 'dark', label: 'Dark', icon: Moon },
     { mode: 'amoled', label: 'AMOLED', icon: Monitor },
   ];
 
