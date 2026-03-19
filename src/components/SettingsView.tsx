@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Sun, Monitor, Trash2, Cloud, CloudDownload, CloudUpload, LogIn, LogOut } from 'lucide-react';
 import type { AppSettings, ThemeMode, Note, NoteFont, NoteFontSize } from '@/lib/store';
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 interface SettingsViewProps {
   settings: AppSettings;
   noteCount: number;
@@ -179,6 +181,13 @@ const SettingsView = ({
     setSelectedDownloadIds([]);
   };
 
+  const cloudStatusMatch = cloudStatus.match(/^(.*?\.)\s+(\d+\s+notes?\s+in\s+cloud\.)$/i);
+  const rawCloudStatusPrimary = cloudStatusMatch?.[1] ?? cloudStatus;
+  const cloudStatusSecondary = cloudStatusMatch?.[2] ?? null;
+  const cloudStatusPrimary = cloudUserEmail
+    ? rawCloudStatusPrimary.replace(new RegExp(`Signed in as\\s+${escapeRegExp(cloudUserEmail)}\\.?`, 'i'), 'Connected to Google backup.')
+    : rawCloudStatusPrimary;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -262,7 +271,7 @@ const SettingsView = ({
                 </button>
               ))}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground break-all">
               {cloudUserEmail
                 ? `Saved for ${cloudUserEmail}.`
                 : 'Sign in with Google to save per-account defaults.'}
@@ -281,8 +290,8 @@ const SettingsView = ({
           </button>
 
           <div className="rounded-2xl border border-border bg-card/40 p-5">
-            <div className="flex items-start gap-4">
-              <div className="mt-1 h-14 w-14 overflow-hidden rounded-xl bg-secondary">
+            <div className="flex items-center gap-4">
+              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-secondary">
                 {cloudUserEmail && cloudUserPhotoUrl && !profileImageFailed ? (
                   <img
                     src={cloudUserPhotoUrl}
@@ -297,13 +306,22 @@ const SettingsView = ({
                   </div>
                 )}
               </div>
-              <div className="flex-1">
-                <p className="text-base font-semibold text-foreground">
+              <div className="min-w-0 flex-1 self-center">
+                <p className="break-all text-base font-semibold leading-snug text-foreground">
                   {cloudUserEmail ? cloudUserEmail : 'Google backup is disconnected'}
                 </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{cloudStatus}</p>
+                <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">
+                  {cloudStatusPrimary}
+                </p>
+                {cloudStatusSecondary && (
+                  <div className="mt-2 inline-flex max-w-full items-center rounded-full border border-emerald-400/30 bg-emerald-500/12 px-3 py-1.5">
+                    <span className="truncate text-xs font-semibold tracking-[0.01em] text-emerald-300">
+                      {cloudStatusSecondary}
+                    </span>
+                  </div>
+                )}
                 {cloudLastUploadedAt && (
-                  <p className="mt-3 text-xs text-muted-foreground">
+                  <p className="mt-3 break-words text-xs leading-relaxed text-muted-foreground">
                     Last upload: {cloudLastUploadedAt}
                   </p>
                 )}
@@ -348,6 +366,8 @@ const SettingsView = ({
                     disabled={cloudBusyAction !== null}
                     onClick={onCloudSignOut}
                     muted
+                    caution
+                    description="Turns off Google backup on this device."
                   />
                 </>
               )}
@@ -539,7 +559,7 @@ const SettingsView = ({
                       onChange={() => toggleDeleteSelection(note.cloudDocId!)}
                       className="accent-destructive mr-3"
                       onClick={(e) => e.stopPropagation()}
-                    />analyze and push the chan
+                    />
                     <span className="flex-1 text-base font-semibold text-foreground line-clamp-1">
                       {note.title}
                     </span>
@@ -652,26 +672,49 @@ function ActionButton({
   icon: Icon,
   disabled,
   muted = false,
+  caution = false,
+  description,
   onClick,
 }: {
   label: string;
   icon: React.ElementType;
   disabled?: boolean;
   muted?: boolean;
+  caution?: boolean;
+  description?: string;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      className={`flex w-full items-center gap-3 rounded-xl border px-5 py-4 text-left transition-colors ${
-        muted
+      className={`flex w-full items-start gap-3 rounded-xl border px-5 py-4 text-left transition-colors ${
+        caution
+          ? 'border-destructive/35 bg-destructive/10 text-foreground'
+          : muted
           ? 'border-border bg-transparent text-muted-foreground'
           : 'border-border bg-secondary/60 text-foreground'
       } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
     >
-      <Icon size={22} className={muted ? 'text-muted-foreground' : 'text-foreground'} />
-      <span className="text-base font-medium">{label}</span>
+      <Icon
+        size={22}
+        className={
+          caution ? 'mt-0.5 text-destructive' : muted ? 'text-muted-foreground' : 'text-foreground'
+        }
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-medium">{label}</span>
+        {description && (
+          <span className="mt-1 block text-sm leading-relaxed text-muted-foreground">
+            {description}
+          </span>
+        )}
+      </span>
+      {caution && (
+        <span className="shrink-0 rounded-full border border-destructive/40 bg-destructive/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-destructive">
+          Caution
+        </span>
+      )}
     </button>
   );
 }

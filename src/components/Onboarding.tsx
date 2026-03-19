@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Feather, Cloud, Lock, Sun, Moon, Monitor } from 'lucide-react';
+import { Feather, Cloud, Lock, Sun, Monitor } from 'lucide-react';
 import type { ThemeMode } from '@/lib/store';
 import { applyTheme } from '@/lib/store';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
 import { useNotes } from '@/lib/store';
+import logoBlack from '../../logo-black.png';
+import logoWhite from '../../logo-white.png';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -13,22 +15,46 @@ interface OnboardingProps {
 
 const Onboarding = ({ onComplete, onSetTheme }: OnboardingProps) => {
   const [step, setStep] = useState(0);
+  const [previewTheme, setPreviewTheme] = useState<ThemeMode>(() =>
+    document.documentElement.classList.contains('amoled') ? 'amoled' : 'light'
+  );
   const { notes, setNotes } = useNotes();
   const cloudBackup = useFirebaseBackup(notes, setNotes);
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col items-center justify-between">
       <AnimatePresence mode="wait">
-        {step === 0 && <SplashStep key="splash" onNext={() => setStep(1)} />}
+        {step === 0 && (
+          <SplashStep
+            key="splash"
+            theme={previewTheme}
+            onNext={() => setStep(1)}
+          />
+        )}
         {step === 1 && <FeaturesStep key="features" onNext={() => setStep(2)} />}
-        {step === 2 && <ThemeStep key="theme" onNext={() => setStep(3)} onSetTheme={onSetTheme} />}
+        {step === 2 && (
+          <ThemeStep
+            key="theme"
+            onNext={() => setStep(3)}
+            onSetTheme={onSetTheme}
+            onPreviewThemeChange={setPreviewTheme}
+          />
+        )}
         {step === 3 && <CloudLoginStep key="cloud" cloudBackup={cloudBackup} onComplete={onComplete} />}
       </AnimatePresence>
     </div>
   );
 };
 
-function SplashStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+function SplashStep({
+  theme,
+  onNext,
+}: {
+  theme: ThemeMode;
+  onNext: () => void;
+}) {
+  const logoSrc = theme === 'amoled' ? logoWhite : logoBlack;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -38,10 +64,12 @@ function SplashStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
     >
       
       <div className="flex flex-col items-center gap-6 flex-1 justify-center">
-        <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center">
-          <span className="font-serif-display text-2xl font-semibold text-foreground">P</span>
-        </div>
-        <h1 className="font-serif-display text-3xl font-semibold text-foreground">PRnote</h1>
+        <img
+          src={logoSrc}
+          alt="PRnote"
+          className="w-52 max-w-[72vw] select-none pointer-events-none"
+          draggable={false}
+        />
         <div className="w-8 h-px bg-muted-foreground" />
       </div>
 
@@ -58,7 +86,7 @@ function SplashStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void
   );
 }
 
-function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => void }) {
+function FeaturesStep({ onNext }: { onNext: () => void }) {
   const features = [
     { icon: Feather, title: 'Markdown support', desc: 'Format as you type with standard markdown shortcuts.' },
     { icon: Cloud, title: 'Cloud sync', desc: 'Access your notes on any device, instantly updated.' },
@@ -100,7 +128,15 @@ function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
   );
 }
 
-function ThemeStep({ onNext, onSetTheme }: { onNext: () => void; onSetTheme: (theme: ThemeMode) => void }) {
+function ThemeStep({
+  onNext,
+  onSetTheme,
+  onPreviewThemeChange,
+}: {
+  onNext: () => void;
+  onSetTheme: (theme: ThemeMode) => void;
+  onPreviewThemeChange: (theme: ThemeMode) => void;
+}) {
   const [selected, setSelected] = useState<ThemeMode>('light');
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
@@ -109,6 +145,7 @@ function ThemeStep({ onNext, onSetTheme }: { onNext: () => void; onSetTheme: (th
 
   const handleSelect = (mode: ThemeMode) => {
     setSelected(mode);
+    onPreviewThemeChange(mode);
     applyTheme(mode); // Live preview
   };
 
@@ -155,6 +192,12 @@ function ThemeStep({ onNext, onSetTheme }: { onNext: () => void; onSetTheme: (th
 }
 
 function CloudLoginStep({ cloudBackup, onComplete }: { cloudBackup: any; onComplete: () => void }) {
+  useEffect(() => {
+    if (cloudBackup.user) {
+      onComplete();
+    }
+  }, [cloudBackup.user, onComplete]);
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}
