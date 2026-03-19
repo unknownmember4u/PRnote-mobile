@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Pin, Plus, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft, MoreVertical } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
+import { getChecklistProgress, getNotePreview } from '@/lib/note-content';
 
 interface NotesListProps {
   notes: Note[];
@@ -96,8 +97,13 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
           </button>
         </div>
       </div>
-      {note.content && (
-        <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{note.content}</p>
+      {note.noteType === 'checklist' && (
+        <p className="mt-2 text-xs font-medium text-muted-foreground">
+          {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
+        </p>
+      )}
+      {getNotePreview(note) && (
+        <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{getNotePreview(note)}</p>
       )}
       <p className="text-xs text-muted-foreground mt-3">{formatDate(note.updatedAt)}</p>
     </motion.div>
@@ -112,8 +118,13 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
     >
       <button onClick={() => onOpenNote(note)} className="w-full text-left">
         <h3 className="text-base font-semibold text-foreground line-clamp-1">{note.title}</h3>
-        {note.content && (
-          <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{note.content}</p>
+        {note.noteType === 'checklist' && (
+          <p className="mt-2 text-xs font-medium text-muted-foreground">
+            {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
+          </p>
+        )}
+        {getNotePreview(note) && (
+          <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{getNotePreview(note)}</p>
         )}
         <p className="text-xs text-muted-foreground mt-3">Archived on {formatDate(note.updatedAt)}</p>
       </button>

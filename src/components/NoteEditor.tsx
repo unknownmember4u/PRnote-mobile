@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ArrowLeft, Share as ShareIcon, Pin, Star, Type } from 'lucide-react';
+import { ArrowLeft, Share as ShareIcon, Pin, Star, Type, CheckSquare2, Square, ListTodo, AlignLeft, Plus, X } from 'lucide-react';
 import { Share } from '@capacitor/share';
-import type { NoteFont, NoteFontSize } from '@/lib/store';
+import type { ChecklistItem, NoteFont, NoteFontSize, NoteType } from '@/lib/store';
+import { getChecklistProgress, getNoteWordCount, getShareText, hasNoteContent } from '@/lib/note-content';
 
 const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
   { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
@@ -15,6 +16,8 @@ const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = 
 interface NoteEditorProps {
   initialTitle?: string;
   initialContent?: string;
+  initialNoteType?: NoteType;
+  initialChecklistItems?: ChecklistItem[];
   initialPinned?: boolean;
   initialFavorite?: boolean;
   initialCreatedAt?: number;
@@ -23,6 +26,8 @@ interface NoteEditorProps {
   onSave: (payload: {
     title: string;
     content: string;
+    noteType: NoteType;
+    checklistItems: ChecklistItem[];
     pinned: boolean;
     favorite: boolean;
     createdAt: number;
@@ -35,6 +40,8 @@ interface NoteEditorProps {
 const NoteEditor = ({
   initialTitle = '',
   initialContent = '',
+  initialNoteType = 'text',
+  initialChecklistItems = [],
   initialPinned = false,
   initialFavorite = false,
   initialCreatedAt,
@@ -45,6 +52,10 @@ const NoteEditor = ({
 }: NoteEditorProps) => {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState(initialContent);
+  const [noteType, setNoteType] = useState<NoteType>(initialNoteType);
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(
+    initialChecklistItems.length > 0 ? initialChecklistItems : [{ id: crypto.randomUUID(), text: '', checked: false }],
+  );
   const [pinned, setPinned] = useState(initialPinned);
   const [favorite, setFavorite] = useState(initialFavorite);
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
@@ -55,7 +66,10 @@ const NoteEditor = ({
   const lastSavedSnapshotRef = useRef('');
 
   // Memoize word count calculation
-  const wordCount = useMemo(() => content.split(/\s+/).filter(Boolean).length, [content]);
+  const wordCount = useMemo(
+    () => getNoteWordCount({ content, checklistItems, noteType }),
+    [content, checklistItems, noteType],
+  );
 
   // Memoize date formatting
   const createdDate = useMemo(() => 
@@ -77,19 +91,21 @@ const NoteEditor = ({
   const selectedFont = FONT_OPTIONS.find((option) => option.value === fontFamily) ?? FONT_OPTIONS[0];
 
   const hasMeaningfulContent = useMemo(
-    () => Boolean(title.trim() || content.trim()),
-    [title, content],
+    () => hasNoteContent({ title, content, checklistItems, noteType }),
+    [title, content, checklistItems, noteType],
   );
 
   const buildPayload = useCallback(() => ({
     title: title || 'Untitled',
     content,
+    noteType,
+    checklistItems: checklistItems.map((item) => ({ ...item })),
     pinned,
     favorite,
     createdAt,
     fontFamily,
     fontSize,
-  }), [title, content, pinned, favorite, createdAt, fontFamily, fontSize]);
+  }), [title, content, noteType, checklistItems, pinned, favorite, createdAt, fontFamily, fontSize]);
 
   const createPayloadSnapshot = useCallback(() => JSON.stringify(buildPayload()), [buildPayload]);
 
@@ -168,6 +184,12 @@ const NoteEditor = ({
     setContent(e.target.value);
   }, []);
 
+  const ensureChecklistHasRow = useCallback(() => {
+    setChecklistItems((current) =>
+      current.length > 0 ? current : [{ id: crypto.randomUUID(), text: '', checked: false }],
+    );
+  }, []);
+
   const handlePinToggle = useCallback(() => {
     setPinned((current) => !current);
   }, []);
@@ -175,6 +197,13 @@ const NoteEditor = ({
   const handleFavoriteToggle = useCallback(() => {
     setFavorite((current) => !current);
   }, []);
+
+  const handleNoteTypeChange = useCallback((nextType: NoteType) => {
+    setNoteType(nextType);
+    if (nextType === 'checklist') {
+      ensureChecklistHasRow();
+    }
+  }, [ensureChecklistHasRow]);
 
   const handleFontMenuToggle = useCallback(() => {
     setFontMenuOpen((prev) => !prev);
@@ -189,10 +218,60 @@ const NoteEditor = ({
     setFontSize(size);
   }, []);
 
+  const handleChecklistItemChange = useCallback((id: string, text: string) => {
+    setChecklistItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, text } : item)),
+    );
+  }, []);
+
+  const handleChecklistItemToggle = useCallback((id: string) => {
+    setChecklistItems((current) =>
+      current.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)),
+    );
+  }, []);
+
+  const handleAddChecklistItem = useCallback((afterId?: string) => {
+    setChecklistItems((current) => {
+      const nextItem = { id: crypto.randomUUID(), text: '', checked: false };
+
+      if (!afterId) {
+        return [...current, nextItem];
+      }
+
+      const index = current.findIndex((item) => item.id === afterId);
+      if (index === -1) {
+        return [...current, nextItem];
+      }
+
+      return [...current.slice(0, index + 1), nextItem, ...current.slice(index + 1)];
+    });
+  }, []);
+
+  const handleRemoveChecklistItem = useCallback((id: string) => {
+    setChecklistItems((current) => {
+      if (current.length === 1) {
+        return [{ ...current[0], text: '', checked: false }];
+      }
+      return current.filter((item) => item.id !== id);
+    });
+  }, []);
+
+  const handleChecklistKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>, item: ChecklistItem) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      handleAddChecklistItem(item.id);
+      return;
+    }
+
+    if (event.key === 'Backspace' && !item.text && checklistItems.length > 1) {
+      event.preventDefault();
+      handleRemoveChecklistItem(item.id);
+    }
+  }, [checklistItems.length, handleAddChecklistItem, handleRemoveChecklistItem]);
+
   const handleShare = useCallback(async () => {
     const trimmedTitle = title.trim() || 'Untitled';
-    const trimmedContent = content.trim();
-    const shareText = trimmedContent ? `${trimmedTitle}\n\n${trimmedContent}` : trimmedTitle;
+    const shareText = getShareText({ title: trimmedTitle, content, checklistItems, noteType });
 
     try {
       const canNativeShare = await Share.canShare();
@@ -227,7 +306,12 @@ const NoteEditor = ({
         // No-op if clipboard is unavailable.
       }
     }
-  }, [title, content]);
+  }, [title, content, checklistItems, noteType]);
+
+  const checklistProgress = useMemo(
+    () => getChecklistProgress({ noteType, checklistItems }),
+    [noteType, checklistItems],
+  );
 
   const handleBack = useCallback(() => {
     if (hasMeaningfulContent) {
@@ -340,6 +424,11 @@ const NoteEditor = ({
         />
         <p className="text-sm font-medium text-muted-foreground mb-4">
           {createdDate} • {createdTime} • {wordCount} words
+          {noteType === 'checklist' && (
+            <span className="ml-2 text-xs text-muted-foreground/90">
+              • {checklistProgress.completed}/{checklistProgress.total} done
+            </span>
+          )}
           {hasMeaningfulContent && (
             <span className="ml-2 inline-flex items-center gap-1.5">
               <span
@@ -353,13 +442,80 @@ const NoteEditor = ({
             </span>
           )}
         </p>
-        <textarea
-          value={content}
-          onChange={handleContentChange}
-          placeholder="Start writing..."
-          className="w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
-          style={textareaStyles}
-        />
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            onClick={() => handleNoteTypeChange('text')}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+              noteType === 'text'
+                ? 'border-foreground bg-secondary text-foreground'
+                : 'border-border text-muted-foreground'
+            }`}
+          >
+            <AlignLeft size={14} />
+            Text
+          </button>
+          <button
+            onClick={() => handleNoteTypeChange('checklist')}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+              noteType === 'checklist'
+                ? 'border-foreground bg-secondary text-foreground'
+                : 'border-border text-muted-foreground'
+            }`}
+          >
+            <ListTodo size={14} />
+            Checklist
+          </button>
+        </div>
+        {noteType === 'checklist' ? (
+          <div className="flex-1 overflow-y-auto overscroll-contain pb-2">
+            <div className="space-y-3">
+              {checklistItems.map((item) => (
+                <div key={item.id} className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleChecklistItemToggle(item.id)}
+                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    aria-label={item.checked ? 'Mark item incomplete' : 'Mark item complete'}
+                    title={item.checked ? 'Mark incomplete' : 'Mark complete'}
+                  >
+                    {item.checked ? <CheckSquare2 size={20} className="text-foreground" /> : <Square size={20} />}
+                  </button>
+                  <input
+                    value={item.text}
+                    onChange={(event) => handleChecklistItemChange(item.id, event.target.value)}
+                    onKeyDown={(event) => handleChecklistKeyDown(event, item)}
+                    placeholder="List item"
+                    className={`min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground ${
+                      item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
+                    }`}
+                  />
+                  <button
+                    onClick={() => handleRemoveChecklistItem(item.id)}
+                    className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    aria-label="Remove item"
+                    title="Remove item"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => handleAddChecklistItem()}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Plus size={16} />
+              Add item
+            </button>
+          </div>
+        ) : (
+          <textarea
+            value={content}
+            onChange={handleContentChange}
+            placeholder="Start writing..."
+            className="w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
+            style={textareaStyles}
+          />
+        )}
       </div>
     </div>
   );

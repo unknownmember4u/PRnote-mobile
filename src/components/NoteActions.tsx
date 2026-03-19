@@ -4,6 +4,7 @@ import { Pin, Star, Copy, FolderOpen, Zap, Lock, Archive, Share, Trash2, AlertTr
 import { Share as CapacitorShare } from '@capacitor/share';
 import type { Note, NotePriority } from '@/lib/store';
 import { authenticateWithDeviceLock, hashSecret, verifySecret } from '@/lib/note-security';
+import { getShareText } from '@/lib/note-content';
 
 interface NoteActionsProps {
   note: Note;
@@ -36,7 +37,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
 
   const handleCopyNote = async () => {
     try {
-      const text = `${note.title}\n\n${note.content}`.trim();
+      const text = getShareText(note);
       await navigator.clipboard.writeText(text);
       onClose();
     } catch {
@@ -45,7 +46,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
   };
 
   const handleShareNote = async () => {
-    const text = `${note.title}\n\n${note.content}`.trim();
+    const text = getShareText(note);
 
     try {
       const capability = await CapacitorShare.canShare();

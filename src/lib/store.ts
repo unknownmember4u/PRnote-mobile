@@ -1,9 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
+import { normalizeChecklistItems } from '@/lib/note-content';
+
+export type NoteType = 'text' | 'checklist';
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  checked: boolean;
+}
 
 export interface Note {
   id: string;
   title: string;
   content: string;
+  noteType: NoteType;
+  checklistItems: ChecklistItem[];
   createdAt: number;
   updatedAt: number;
   pinned: boolean;
@@ -139,6 +150,8 @@ function loadNotes(): Note[] {
     return Array.isArray(parsed)
       ? parsed.map((note) => ({
           ...note,
+          noteType: note.noteType === 'checklist' ? 'checklist' : 'text',
+          checklistItems: normalizeChecklistItems(note.checklistItems),
           fontFamily: note.fontFamily ?? 'playfair',
           fontSize: note.fontSize ?? 'md',
           lockType: note.lockType ?? (note.locked ? 'device' : 'none'),
@@ -163,6 +176,8 @@ export function useNotes() {
     const note: Note = {
       id: crypto.randomUUID(),
       title, content,
+      noteType: 'text',
+      checklistItems: [],
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
       lockType: 'none', customLockHash: null,

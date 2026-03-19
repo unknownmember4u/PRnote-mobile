@@ -4,6 +4,7 @@ import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Zap, ChevronDown, FileP
 import type { Note, FolderNode } from '@/lib/store';
 import { flattenFolderTree } from '@/lib/store';
 import NoteActions from './NoteActions';
+import { getChecklistProgress, getNotePreview } from '@/lib/note-content';
 
 interface FoldersViewProps {
   notes: Note[];
@@ -433,8 +434,13 @@ const FoldersView = ({
                       </button>
                     </div>
                   </div>
-                  {note.content && (
-                    <p className="text-sm italic text-muted-foreground line-clamp-2">{note.content}</p>
+                  {note.noteType === 'checklist' && (
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">
+                      {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
+                    </p>
+                  )}
+                  {getNotePreview(note) && (
+                    <p className="text-sm italic text-muted-foreground line-clamp-2">{getNotePreview(note)}</p>
                   )}
                 </div>
               ))}

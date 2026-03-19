@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
-import type { Note, NoteFont, NoteFontSize } from '@/lib/store';
+import type { ChecklistItem, Note, NoteFont, NoteFontSize, NoteType } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
 import { verifySecret, authenticateWithDeviceLock } from '@/lib/note-security';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
@@ -177,6 +177,8 @@ const Index = () => {
   const handleDuplicateNote = useCallback((note: Note) => {
     const duplicated = addNote(`${note.title} (copy)`, note.content, note.folder);
     updateNote(duplicated.id, {
+      noteType: note.noteType,
+      checklistItems: note.checklistItems.map((item) => ({ ...item, id: crypto.randomUUID() })),
       pinned: note.pinned,
       favorite: note.favorite,
       priority: note.priority,
@@ -211,11 +213,23 @@ const Index = () => {
     setView('editor');
   }, [unlockingNote, unlockInput]);
 
-  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number; fontFamily: NoteFont; fontSize: NoteFontSize }) => {
+  const handleSaveNote = useCallback((payload: {
+    title: string;
+    content: string;
+    noteType: NoteType;
+    checklistItems: ChecklistItem[];
+    pinned: boolean;
+    favorite: boolean;
+    createdAt: number;
+    fontFamily: NoteFont;
+    fontSize: NoteFontSize;
+  }) => {
     if (editingNote) {
       updateNote(editingNote.id, {
         title: payload.title,
         content: payload.content,
+        noteType: payload.noteType,
+        checklistItems: payload.checklistItems,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: editingNote.createdAt,
@@ -225,6 +239,8 @@ const Index = () => {
     } else {
       const note = addNote(payload.title, payload.content, newNoteFolderPath);
       updateNote(note.id, {
+        noteType: payload.noteType,
+        checklistItems: payload.checklistItems,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: payload.createdAt,
@@ -235,6 +251,8 @@ const Index = () => {
         ...note,
         title: payload.title,
         content: payload.content,
+        noteType: payload.noteType,
+        checklistItems: payload.checklistItems,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: payload.createdAt,
@@ -286,6 +304,8 @@ const Index = () => {
             key="editor"
             initialTitle={editingNote?.title}
             initialContent={editingNote?.content}
+            initialNoteType={editingNote?.noteType}
+            initialChecklistItems={editingNote?.checklistItems}
             initialPinned={editingNote?.pinned}
             initialFavorite={editingNote?.favorite}
             initialCreatedAt={editingNote?.createdAt}

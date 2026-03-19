@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, Mic, MoreVertical, X } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
+import { getChecklistProgress, getNotePreview, getNoteSearchText } from '@/lib/note-content';
 
 interface SearchViewProps {
   notes: Note[];
@@ -37,11 +38,7 @@ const SearchView = ({
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
-    return notes.filter(n =>
-      n.title.toLowerCase().includes(q) ||
-      n.content.toLowerCase().includes(q) ||
-      (n.priority !== 'none' && `${n.priority} priority`.includes(q))
-    );
+    return notes.filter((n) => getNoteSearchText(n).includes(q));
   }, [query, notes]);
 
   const recent = notes.slice(0, 3);
@@ -65,7 +62,12 @@ const SearchView = ({
           <MoreVertical size={18} />
         </button>
       </div>
-      {note.content && <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{note.content}</p>}
+      {note.noteType === 'checklist' && (
+        <p className="mt-2 text-xs font-medium text-muted-foreground">
+          {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
+        </p>
+      )}
+      {getNotePreview(note) && <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{getNotePreview(note)}</p>}
     </div>
   );
 

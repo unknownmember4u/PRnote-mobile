@@ -47,6 +47,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import type { Note } from '@/lib/store';
+import { normalizeChecklistItems } from '@/lib/note-content';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -215,6 +216,8 @@ export async function uploadNotesToFirebase(notes: Note[]) {
       data: {
         title: note.title,
         content: note.content,
+        noteType: note.noteType,
+        checklistItems: note.checklistItems,
         createdAt: note.createdAt,
         updatedAt: note.updatedAt,
         archived: note.archived,
@@ -275,6 +278,8 @@ function mapDocToNote<T extends { id: string; data: () => Record<string, unknown
     id: cloudDocId,
     title: typeof raw.title === 'string' ? raw.title : 'Untitled',
     content: typeof raw.content === 'string' ? raw.content : '',
+    noteType: raw.noteType === 'checklist' ? 'checklist' : 'text',
+    checklistItems: normalizeChecklistItems(raw.checklistItems),
     createdAt,
     updatedAt,
     pinned: Boolean(raw.pinned),
