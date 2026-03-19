@@ -152,6 +152,15 @@ const Index = () => {
         createdAt: payload.createdAt,
         fontFamily: payload.fontFamily,
       });
+      setEditingNote({
+        ...note,
+        title: payload.title,
+        content: payload.content,
+        pinned: payload.pinned,
+        favorite: payload.favorite,
+        createdAt: payload.createdAt,
+        fontFamily: payload.fontFamily,
+      });
     }
   }, [editingNote, updateNote, addNote, newNoteFolderPath]);
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ArrowLeft, Share, Pin, Star, Type } from 'lucide-react';
 import type { NoteFont } from '@/lib/store';
 
@@ -46,6 +46,8 @@ const NoteEditor = ({
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
   const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved'>('idle');
+  const lastSavedSnapshotRef = useRef('');
 
   // Memoize word count calculation
   const wordCount = useMemo(() => content.split(/\s+/).filter(Boolean).length, [content]);
@@ -68,6 +70,51 @@ const NoteEditor = ({
   [createdAt]);
 
   const selectedFont = FONT_OPTIONS.find((option) => option.value === fontFamily) ?? FONT_OPTIONS[0];
+
+  const hasMeaningfulContent = useMemo(
+    () => Boolean(title.trim() || content.trim()),
+    [title, content],
+  );
+
+  const buildPayload = useCallback(() => ({
+    title: title || 'Untitled',
+    content,
+    pinned,
+    favorite,
+    createdAt,
+    fontFamily,
+  }), [title, content, pinned, favorite, createdAt, fontFamily]);
+
+  const createPayloadSnapshot = useCallback(() => JSON.stringify(buildPayload()), [buildPayload]);
+
+  useEffect(() => {
+    if (!hasMeaningfulContent) {
+      setSaveState('idle');
+      return;
+    }
+
+    const snapshot = createPayloadSnapshot();
+    if (!lastSavedSnapshotRef.current) {
+      lastSavedSnapshotRef.current = snapshot;
+      setSaveState('saved');
+      return;
+    }
+
+    if (snapshot === lastSavedSnapshotRef.current) {
+      setSaveState('saved');
+      return;
+    }
+
+    setSaveState('pending');
+    const autosaveTimer = window.setTimeout(() => {
+      const payload = buildPayload();
+      onSave(payload);
+      lastSavedSnapshotRef.current = JSON.stringify(payload);
+      setSaveState('saved');
+    }, 1000);
+
+    return () => window.clearTimeout(autosaveTimer);
+  }, [hasMeaningfulContent, createPayloadSnapshot, buildPayload, onSave]);
 
   // Memoize font family lookup
   const getFontFamily = useCallback((font: NoteFont): string => {
@@ -123,18 +170,16 @@ const NoteEditor = ({
   }, []);
 
   const handleBack = useCallback(() => {
-    if (title.trim() || content.trim()) {
-      onSave({
-        title: title || 'Untitled',
-        content,
-        pinned,
-        favorite,
-        createdAt,
-        fontFamily,
-      });
+    if (hasMeaningfulContent) {
+      const payload = buildPayload();
+      const snapshot = JSON.stringify(payload);
+      if (snapshot !== lastSavedSnapshotRef.current) {
+        onSave(payload);
+        lastSavedSnapshotRef.current = snapshot;
+      }
     }
     onBack();
-  }, [title, content, pinned, favorite, createdAt, fontFamily, onSave, onBack]);
+  }, [hasMeaningfulContent, buildPayload, onSave, onBack]);
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col z-50 overflow-hidden">
@@ -220,6 +265,18 @@ const NoteEditor = ({
         />
         <p className="text-sm font-medium text-muted-foreground mb-4">
           {createdDate} • {createdTime} • {wordCount} words
+          {hasMeaningfulContent && (
+            <span className="ml-2 inline-flex items-center gap-1.5">
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${
+                  saveState === 'pending' ? 'animate-pulse bg-amber-500' : 'bg-emerald-500'
+                }`}
+              />
+              <span className="text-xs text-muted-foreground/90">
+                {saveState === 'pending' ? 'Saving...' : 'Saved'}
+              </span>
+            </span>
+          )}
         </p>
         <textarea
           value={content}

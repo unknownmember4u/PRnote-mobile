@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
+import { Pin, Plus, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
 
@@ -25,7 +25,26 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   const [actionNote, setActionNote] = useState<Note | null>(null);
   const [showArchivedView, setShowArchivedView] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
   const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Tagged'];
+
+  const startLongPress = (note: Note) => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+    }
+
+    longPressTimerRef.current = window.setTimeout(() => {
+      setActionNote(note);
+      longPressTimerRef.current = null;
+    }, 450);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     const handleAndroidBack = (event: Event) => {
@@ -77,18 +96,16 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => onOpenNote(note)}
+      onPointerDown={() => startLongPress(note)}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
       className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border hover:border-muted-foreground/30 transition-colors"
     >
       <div className="flex justify-between items-start">
         <h3 className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</h3>
         <div className="flex items-center gap-2 ml-2">
           {note.favorite && <Star size={18} className="text-muted-foreground fill-muted-foreground" />}
-          <button
-            onClick={(e) => { e.stopPropagation(); setActionNote(note); }}
-            className="p-1"
-          >
-            <MoreHorizontal size={18} className="text-muted-foreground" />
-          </button>
         </div>
       </div>
       {note.content && (
