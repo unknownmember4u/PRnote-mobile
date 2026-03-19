@@ -18,7 +18,18 @@ const Index = () => {
   const { done: onboarded, complete: completeOnboarding } = useOnboarded();
   const { notes, addNote, updateNote, deleteNote, setNotes } = useNotes();
   const { settings, update: updateSettings } = useSettings();
-  const cloudBackup = useFirebaseBackup(notes, setNotes);
+  const cloudBackup = useFirebaseBackup(notes, {
+    setNotes,
+    onCloudNotesDeleted: (cloudDocIds) => {
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.cloudDocId && cloudDocIds.includes(n.cloudDocId)
+            ? { ...n, cloudDocId: null }
+            : n
+        )
+      );
+    },
+  });
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNoteFolderPath, setNewNoteFolderPath] = useState<string | null>(null);
@@ -337,6 +348,9 @@ const Index = () => {
             onCloudSignIn={cloudBackup.signIn}
             onCloudSignOut={cloudBackup.signOut}
             onCloudUpload={cloudBackup.upload}
+            onCloudDownload={cloudBackup.download}
+            cloudNotes={cloudBackup.cloudNotes}
+            onCloudDelete={cloudBackup.deleteCloudNotes}
           />
         )}
       </AnimatePresence>

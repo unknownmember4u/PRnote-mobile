@@ -3,19 +3,29 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { User } from 'firebase/auth';
 import type { Note } from '@/lib/store';
 import {
-  downloadNotesFromFirebase,
   ensureCloudDocIds,
   isFirebaseConfigured,
   resolveFirebaseRedirect,
   signInWithGoogle,
   signOutFromFirebase,
+  subscribeToCloudNotes,
   subscribeToFirebaseUser,
   uploadNotesToFirebase,
+  deleteNotesFromFirebase,
 } from '@/lib/firebase';
 
-export function useFirebaseBackup(notes: Note[], setNotes?: Dispatch<SetStateAction<Note[]>>) {
+export type CloudBackupOptions = {
+  /** Called when notes are deleted from cloud, to clear cloudDocId from local notes. */
+  onCloudNotesDeleted?: (cloudDocIds: string[]) => void;
+  /** If set, used to update local notes with cloudDocIds after upload. */
+  setNotes?: Dispatch<SetStateAction<Note[]>>;
+};
+
+export function useFirebaseBackup(notes: Note[], options?: CloudBackupOptions) {
+  const { onCloudNotesDeleted, setNotes } = options ?? {};
   const [user, setUser] = useState<User | null>(null);
-  const [busyAction, setBusyAction] = useState<'sign-in' | 'sign-out' | 'upload' | null>(null);
+  const [cloudNotes, setCloudNotes] = useState<Note[]>([]);
+  const [busyAction, setBusyAction] = useState<'sign-in' | 'sign-out' | 'upload' | 'download' | 'delete' | null>(null);
   const [statusMessage, setStatusMessage] = useState('Connect Google to back up your notes to Firebase.');
   const [lastUploadedAt, setLastUploadedAt] = useState<string | null>(null);
   const configured = useMemo(() => isFirebaseConfigured(), []);
@@ -37,46 +47,44 @@ export function useFirebaseBackup(notes: Note[], setNotes?: Dispatch<SetStateAct
       });
 
     let isMounted = true;
+    let unsubscribeCloud: (() => void) | undefined;
 
     const unsubscribe = subscribeToFirebaseUser((nextUser) => {
       setUser(nextUser);
 
+      if (unsubscribeCloud) {
+        unsubscribeCloud();
+        unsubscribeCloud = undefined;
+      }
+
       if (nextUser?.email) {
-        setStatusMessage(`Signed in as ${nextUser.email}. Fetching your cloud notes...`);
+        setStatusMessage(`Signed in as ${nextUser.email}. Syncing cloud notes in real time...`);
 
-        if (setNotes) {
-          downloadNotesFromFirebase()
-            .then((cloudNotes) => {
-              if (!isMounted) {
-                return;
-              }
-
-              setNotes(cloudNotes);
-              setStatusMessage(`Signed in as ${nextUser.email}. Loaded ${cloudNotes.length} cloud notes.`);
-            })
-            .catch((error: Error) => {
-              if (!isMounted) {
-                return;
-              }
-
-              setStatusMessage(error.message || 'Signed in, but could not fetch cloud notes.');
-            });
-        } else {
-          setStatusMessage(`Signed in as ${nextUser.email}.`);
-        }
+        unsubscribeCloud = subscribeToCloudNotes(
+          nextUser.uid,
+          (notesFromCloud) => {
+            if (!isMounted) return;
+            setCloudNotes(notesFromCloud);
+            setStatusMessage(`Signed in as ${nextUser.email}. ${notesFromCloud.length} notes in cloud.`);
+          },
+          (error) => {
+            if (!isMounted) return;
+            setStatusMessage(error.message || 'Could not sync cloud notes.');
+            setCloudNotes([]);
+          }
+        );
       } else if (configured) {
-        if (setNotes) {
-          setNotes([]);
-        }
+        setCloudNotes([]);
         setStatusMessage('Connect Google to back up your notes to Firebase.');
       }
     });
 
     return () => {
       isMounted = false;
+      unsubscribeCloud?.();
       unsubscribe();
     };
-  }, [configured, setNotes]);
+  }, [configured]);
 
   const signIn = async () => {
     if (!configured) {
@@ -111,9 +119,7 @@ export function useFirebaseBackup(notes: Note[], setNotes?: Dispatch<SetStateAct
     try {
       setBusyAction('sign-out');
       await signOutFromFirebase();
-      if (setNotes) {
-        setNotes([]);
-      }
+      setCloudNotes([]);
       setStatusMessage('Signed out from Google backup.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sign out failed.';
@@ -180,7 +186,83 @@ export function useFirebaseBackup(notes: Note[], setNotes?: Dispatch<SetStateAct
     }
   };
 
+  const download = async (selectedCloudDocIds?: string[]) => {
+    if (!setNotes) {
+      setStatusMessage('Cannot download: notes store not available.');
+      return;
+    }
+    const toDownload =
+      selectedCloudDocIds && selectedCloudDocIds.length > 0
+        ? cloudNotes.filter((n) => selectedCloudDocIds.includes(n.cloudDocId ?? ''))
+        : cloudNotes;
+
+    if (toDownload.length === 0) {
+      setStatusMessage(cloudNotes.length === 0 ? 'No notes in cloud to download.' : 'Select at least one note to download.');
+      return;
+    }
+
+    try {
+      setBusyAction('download');
+      setStatusMessage(
+        toDownload.length === cloudNotes.length
+          ? `Downloading all ${toDownload.length} notes from cloud...`
+          : `Downloading ${toDownload.length} selected notes from cloud...`
+      );
+
+      setNotes((prev) => {
+        const toAdd: Note[] = [];
+        const merged = prev.map((local) => {
+          const cloudNote = toDownload.find((c) => c.cloudDocId && c.cloudDocId === local.cloudDocId);
+          if (cloudNote) {
+            return { ...cloudNote, id: local.id };
+          }
+          return local;
+        });
+        for (const cloudNote of toDownload) {
+          const exists = prev.some((l) => l.cloudDocId === cloudNote.cloudDocId);
+          if (!exists) toAdd.push(cloudNote);
+        }
+        return [...toAdd.sort((a, b) => b.updatedAt - a.updatedAt), ...merged];
+      });
+
+      setStatusMessage(
+        toDownload.length === 1
+          ? 'Downloaded 1 note from cloud.'
+          : `Downloaded ${toDownload.length} notes from cloud.`
+      );
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : 'Download failed.';
+      setStatusMessage(rawMessage);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
+  const deleteCloudNotes = async (cloudDocIds: string[]) => {
+    if (cloudDocIds.length === 0) {
+      setStatusMessage('Select at least one note to delete.');
+      return;
+    }
+    try {
+      setBusyAction('delete');
+      setStatusMessage(
+        cloudDocIds.length === 1
+          ? 'Deleting note from cloud...'
+          : `Deleting ${cloudDocIds.length} notes from cloud...`
+      );
+      await deleteNotesFromFirebase(cloudDocIds);
+      setStatusMessage(`Deleted ${cloudDocIds.length} notes from cloud.`);
+      onCloudNotesDeleted?.(cloudDocIds);
+    } catch (error) {
+      const rawMessage = error instanceof Error ? error.message : 'Delete failed.';
+      setStatusMessage(rawMessage);
+    } finally {
+      setBusyAction(null);
+    }
+  };
+
   return {
+    cloudNotes,
     configured,
     user,
     busyAction,
@@ -189,5 +271,7 @@ export function useFirebaseBackup(notes: Note[], setNotes?: Dispatch<SetStateAct
     signIn,
     signOut,
     upload,
+    download,
+    deleteCloudNotes,
   };
 }

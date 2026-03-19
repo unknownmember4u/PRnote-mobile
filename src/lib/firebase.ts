@@ -1,3 +1,29 @@
+export async function deleteNotesFromFirebase(noteCloudDocIds: string[]): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('Sign in with Google before deleting notes.');
+  }
+  const db = getFirebaseDb();
+  for (let index = 0; index < noteCloudDocIds.length; index += 400) {
+    const batch = writeBatch(db);
+    const chunk = noteCloudDocIds.slice(index, index + 400);
+    chunk.forEach((cloudDocId) => {
+      batch.delete(doc(db, 'users', user.uid, 'notes', cloudDocId));
+    });
+    try {
+      await batch.commit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      if (message.includes('missing or insufficient permissions') || message.includes('permission-denied')) {
+        throw new Error(
+          'Firestore permission denied. Update Firestore Rules to allow authenticated users to delete /users/{uid}/notes/{noteId} where request.auth.uid == uid.'
+        );
+      }
+      throw error;
+    }
+  }
+}
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { initializeApp } from 'firebase/app';
@@ -16,6 +42,7 @@ import {
   doc,
   getFirestore,
   getDocs,
+  onSnapshot,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -236,6 +263,37 @@ export async function uploadNotesToFirebase(notes: Note[]) {
   }
 }
 
+function mapDocToNote<T extends { id: string; data: () => Record<string, unknown> }>(noteDoc: T): Note {
+  const raw = noteDoc.data() as Partial<Note>;
+  const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
+  const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
+  const cloudDocId = typeof raw.cloudDocId === 'string' && raw.cloudDocId
+    ? raw.cloudDocId
+    : noteDoc.id;
+
+  return {
+    id: cloudDocId,
+    title: typeof raw.title === 'string' ? raw.title : 'Untitled',
+    content: typeof raw.content === 'string' ? raw.content : '',
+    createdAt,
+    updatedAt,
+    pinned: Boolean(raw.pinned),
+    favorite: Boolean(raw.favorite),
+    archived: Boolean(raw.archived),
+    locked: Boolean(raw.locked),
+    lockType: raw.lockType === 'custom' || raw.lockType === 'device' ? raw.lockType : 'none',
+    customLockHash: typeof raw.customLockHash === 'string' ? raw.customLockHash : null,
+    color: typeof raw.color === 'string' ? raw.color : null,
+    priority: raw.priority === 'high' || raw.priority === 'medium' || raw.priority === 'low' ? raw.priority : 'none',
+    folder: typeof raw.folder === 'string' ? raw.folder : null,
+    fontFamily: raw.fontFamily === 'rustico' || raw.fontFamily === 'priestacy' || raw.fontFamily === 'great-vibes' || raw.fontFamily === 'whispering' || raw.fontFamily === 'allura'
+      ? raw.fontFamily
+      : 'playfair',
+    fontSize: raw.fontSize === 'sm' || raw.fontSize === 'lg' ? raw.fontSize : 'md',
+    cloudDocId,
+  };
+}
+
 export async function downloadNotesFromFirebase(): Promise<Note[]> {
   const auth = getFirebaseAuth();
   const user = auth.currentUser;
@@ -247,36 +305,38 @@ export async function downloadNotesFromFirebase(): Promise<Note[]> {
   const db = getFirebaseDb();
   const notesSnapshot = await getDocs(collection(db, 'users', user.uid, 'notes'));
 
-  const cloudNotes: Note[] = notesSnapshot.docs.map((noteDoc) => {
-    const raw = noteDoc.data() as Partial<Note>;
-    const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
-    const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
-    const cloudDocId = typeof raw.cloudDocId === 'string' && raw.cloudDocId
-      ? raw.cloudDocId
-      : noteDoc.id;
-
-    return {
-      id: cloudDocId,
-      title: typeof raw.title === 'string' ? raw.title : 'Untitled',
-      content: typeof raw.content === 'string' ? raw.content : '',
-      createdAt,
-      updatedAt,
-      pinned: Boolean(raw.pinned),
-      favorite: Boolean(raw.favorite),
-      archived: Boolean(raw.archived),
-      locked: Boolean(raw.locked),
-      lockType: raw.lockType === 'custom' || raw.lockType === 'device' ? raw.lockType : 'none',
-      customLockHash: typeof raw.customLockHash === 'string' ? raw.customLockHash : null,
-      color: typeof raw.color === 'string' ? raw.color : null,
-      priority: raw.priority === 'high' || raw.priority === 'medium' || raw.priority === 'low' ? raw.priority : 'none',
-      folder: typeof raw.folder === 'string' ? raw.folder : null,
-      fontFamily: raw.fontFamily === 'rustico' || raw.fontFamily === 'priestacy' || raw.fontFamily === 'great-vibes' || raw.fontFamily === 'whispering' || raw.fontFamily === 'allura'
-        ? raw.fontFamily
-        : 'playfair',
-      fontSize: raw.fontSize === 'sm' || raw.fontSize === 'lg' ? raw.fontSize : 'md',
-      cloudDocId,
-    };
-  });
+  const cloudNotes: Note[] = notesSnapshot.docs.map((noteDoc) =>
+    mapDocToNote(noteDoc)
+  );
 
   return cloudNotes.sort((left, right) => right.updatedAt - left.updatedAt);
+}
+
+/** Real-time subscription to cloud notes. Call with user.uid when signed in. Returns unsubscribe. */
+export function subscribeToCloudNotes(
+  uid: string,
+  onNotes: (notes: Note[]) => void,
+  onError?: (error: Error) => void
+): () => void {
+  if (!isFirebaseConfigured()) {
+    onNotes([]);
+    return () => undefined;
+  }
+
+  const db = getFirebaseDb();
+  const notesRef = collection(db, 'users', uid, 'notes');
+
+  return onSnapshot(
+    notesRef,
+    (snapshot) => {
+      const cloudNotes: Note[] = snapshot.docs.map((noteDoc) =>
+        mapDocToNote(noteDoc)
+      );
+      onNotes(cloudNotes.sort((left, right) => right.updatedAt - left.updatedAt));
+    },
+    (error) => {
+      onError?.(error instanceof Error ? error : new Error(String(error)));
+      onNotes([]);
+    }
+  );
 }

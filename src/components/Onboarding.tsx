@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Feather, Cloud, Lock, Sun, Moon, Monitor } from 'lucide-react';
 import type { ThemeMode } from '@/lib/store';
 import { applyTheme } from '@/lib/store';
+import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
+import { useNotes } from '@/lib/store';
 
 interface OnboardingProps {
   onComplete: () => void;
@@ -11,13 +13,16 @@ interface OnboardingProps {
 
 const Onboarding = ({ onComplete, onSetTheme }: OnboardingProps) => {
   const [step, setStep] = useState(0);
+  const { notes, setNotes } = useNotes();
+  const cloudBackup = useFirebaseBackup(notes, setNotes);
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col items-center justify-between">
       <AnimatePresence mode="wait">
-        {step === 0 && <SplashStep key="splash" onNext={() => setStep(1)} onSkip={onComplete} />}
-        {step === 1 && <FeaturesStep key="features" onNext={() => setStep(2)} onSkip={onComplete} />}
-        {step === 2 && <ThemeStep key="theme" onComplete={onComplete} onSetTheme={onSetTheme} />}
+        {step === 0 && <SplashStep key="splash" onNext={() => setStep(1)} />}
+        {step === 1 && <FeaturesStep key="features" onNext={() => setStep(2)} />}
+        {step === 2 && <ThemeStep key="theme" onNext={() => setStep(3)} onSetTheme={onSetTheme} />}
+        {step === 3 && <CloudLoginStep key="cloud" cloudBackup={cloudBackup} onComplete={onComplete} />}
       </AnimatePresence>
     </div>
   );
@@ -95,8 +100,8 @@ function FeaturesStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => vo
   );
 }
 
-function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTheme: (theme: ThemeMode) => void }) {
-  const [selected, setSelected] = useState<ThemeMode>('dark');
+function ThemeStep({ onNext, onSetTheme }: { onNext: () => void; onSetTheme: (theme: ThemeMode) => void }) {
+  const [selected, setSelected] = useState<ThemeMode>('light');
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
     { mode: 'amoled', label: 'AMOLED', icon: Monitor },
@@ -107,9 +112,9 @@ function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTh
     applyTheme(mode); // Live preview
   };
 
-  const handleComplete = () => {
+  const handleNext = () => {
     onSetTheme(selected);
-    onComplete();
+    onNext();
   };
 
   return (
@@ -140,11 +145,47 @@ function ThemeStep({ onComplete, onSetTheme }: { onComplete: () => void; onSetTh
       </div>
 
       <button
-        onClick={handleComplete}
+        onClick={handleNext}
         className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium"
       >
-        Start writing
+        Next
       </button>
+    </motion.div>
+  );
+}
+
+function CloudLoginStep({ cloudBackup, onComplete }: { cloudBackup: any; onComplete: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 40 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -40 }}
+      className="safe-top safe-bottom flex flex-col items-center justify-between h-full w-full px-6 py-8 sm:py-12 max-w-md mx-auto"
+    >
+      <div />
+
+      <div className="flex flex-col items-center gap-8 w-full">
+        <h2 className="font-serif-display text-2xl font-semibold text-foreground">Sign in to sync</h2>
+        <p className="text-center text-base text-muted-foreground">Sign in with Google to restore your notes from the cloud and enable backup.</p>
+        <button
+          onClick={cloudBackup.signIn}
+          disabled={cloudBackup.busyAction === 'sign-in'}
+          className="w-full py-4 bg-foreground text-background rounded-2xl text-sm font-medium"
+        >
+          {cloudBackup.busyAction === 'sign-in' ? 'Signing in...' : 'Sign in with Google'}
+        </button>
+        {cloudBackup.statusMessage && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">{cloudBackup.statusMessage}</p>
+        )}
+        {cloudBackup.user && (
+          <button
+            onClick={onComplete}
+            className="w-full py-4 bg-secondary text-foreground rounded-2xl text-sm font-medium mt-4"
+          >
+            Continue to app
+          </button>
+        )}
+      </div>
     </motion.div>
   );
 }
