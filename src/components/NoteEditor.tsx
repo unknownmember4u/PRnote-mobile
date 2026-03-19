@@ -72,6 +72,20 @@ const NoteEditor = ({
     return option?.family ?? FONT_OPTIONS[0].family;
   };
 
+  // Get special styling for script fonts
+  const getScriptFontStyles = (font: NoteFont): React.CSSProperties => {
+    const scriptFonts = ['great-vibes', 'whispering', 'allura'];
+    if (!scriptFonts.includes(font)) return {};
+    
+    return {
+      fontSize: font === 'whispering' ? '1.625rem' : '2rem', // 26px or 32px
+      fontStyle: 'normal', // Remove italic for script fonts
+      letterSpacing: font === 'whispering' ? '0.05em' : '0.1em', // Add spacing
+      fontWeight: font === 'whispering' ? 600 : 400, // Whispering can use 600
+      lineHeight: '1.8',
+    };
+  };
+
   const handleBack = () => {
     if (title.trim() || content.trim()) {
       onSave({
@@ -151,8 +165,12 @@ const NoteEditor = ({
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl italic text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
-          style={{ fontFamily: getFontFamily(fontFamily) }}
+          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
+          style={{ 
+            fontFamily: getFontFamily(fontFamily),
+            fontStyle: ['great-vibes', 'whispering', 'allura'].includes(fontFamily) ? 'normal' : 'italic',
+            ...getScriptFontStyles(fontFamily)
+          }}
         />
       </div>
 
