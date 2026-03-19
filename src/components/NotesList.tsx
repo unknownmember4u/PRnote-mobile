@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Plus, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
+import { Pin, Plus, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft, MoreVertical } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
 
@@ -25,26 +25,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   const [actionNote, setActionNote] = useState<Note | null>(null);
   const [showArchivedView, setShowArchivedView] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Note | null>(null);
-  const longPressTimerRef = useRef<number | null>(null);
   const tabs: TabType[] = ['All', 'Pinned', 'Favorites', 'Priority'];
-
-  const startLongPress = (note: Note) => {
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current);
-    }
-
-    longPressTimerRef.current = window.setTimeout(() => {
-      setActionNote(note);
-      longPressTimerRef.current = null;
-    }, 450);
-  };
-
-  const cancelLongPress = () => {
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  };
 
   useEffect(() => {
     const handleAndroidBack = (event: Event) => {
@@ -91,28 +72,35 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   };
 
   const NoteCard = ({ note }: { note: Note }) => (
-    <motion.button
+    <motion.div
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => onOpenNote(note)}
-      onPointerDown={() => startLongPress(note)}
-      onPointerUp={cancelLongPress}
-      onPointerLeave={cancelLongPress}
-      onPointerCancel={cancelLongPress}
       className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border hover:border-muted-foreground/30 transition-colors"
     >
       <div className="flex justify-between items-start">
         <h3 className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</h3>
-        <div className="flex items-center gap-2 ml-2">
+        <div className="flex items-center gap-1 ml-2">
           {note.favorite && <Star size={18} className="text-muted-foreground fill-muted-foreground" />}
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setActionNote(note);
+            }}
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Open note actions"
+            title="More actions"
+          >
+            <MoreVertical size={18} />
+          </button>
         </div>
       </div>
       {note.content && (
         <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{note.content}</p>
       )}
       <p className="text-xs text-muted-foreground mt-3">{formatDate(note.updatedAt)}</p>
-    </motion.button>
+    </motion.div>
   );
 
   const ArchivedNoteCard = ({ note }: { note: Note }) => (
@@ -149,7 +137,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   );
 
   return (
-    <div className="relative flex flex-col h-full bg-background">
+    <div className="relative flex flex-col h-full min-h-0 bg-background">
       {/* Header */}
       <div className="px-5 safe-top pb-2">
         <div className="flex items-center justify-between mb-6">
@@ -217,8 +205,11 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
 
       {/* Notes */}
       <div
-        className="flex-1 overflow-y-auto px-5 py-4 space-y-4 hide-scrollbar"
-        style={{ paddingBottom: 'calc(var(--fab-clearance) + var(--safe-area-bottom) + var(--keyboard-offset))' }}
+        className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4 hide-scrollbar touch-pan-y"
+        style={{
+          paddingBottom: 'calc(var(--fab-clearance) + var(--app-safe-bottom) + var(--keyboard-offset))',
+          WebkitOverflowScrolling: 'touch',
+        }}
       >
         {showArchivedView ? (
           archivedNotes.length > 0 ? (

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Zap, ChevronDown, FilePlus2, FolderPlus, Trash2 } from 'lucide-react';
+import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Zap, ChevronDown, FilePlus2, FolderPlus, Trash2, MoreVertical } from 'lucide-react';
 import type { Note, FolderNode } from '@/lib/store';
 import { flattenFolderTree } from '@/lib/store';
+import NoteActions from './NoteActions';
 
 interface FoldersViewProps {
   notes: Note[];
@@ -12,6 +13,9 @@ interface FoldersViewProps {
   onDeleteFolder: (path: string) => void;
   onCreateNoteInFolder: (path: string) => void;
   onOpenNote: (note: Note) => void;
+  onUpdateNote: (id: string, updates: Partial<Note>) => void;
+  onDeleteNote: (id: string) => void;
+  onDuplicateNote: (note: Note) => void;
 }
 
 type SmartFolderKey = 'all' | 'favorites' | 'recent';
@@ -20,7 +24,18 @@ type ActiveView =
   | { type: 'priority'; priority: 'low' | 'medium' | 'high'; label: string }
   | { type: 'folder'; path: string; label: string };
 
-const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder, onCreateNoteInFolder, onOpenNote }: FoldersViewProps) => {
+const FoldersView = ({
+  notes,
+  folderTree,
+  onBack,
+  onCreateFolder,
+  onDeleteFolder,
+  onCreateNoteInFolder,
+  onOpenNote,
+  onUpdateNote,
+  onDeleteNote,
+  onDuplicateNote,
+}: FoldersViewProps) => {
   const [activeView, setActiveView] = useState<ActiveView>({ type: 'smart', key: 'all', label: 'All Notes', path: '' });
   const [rootFolderDraft, setRootFolderDraft] = useState('');
   const [childFolderDraft, setChildFolderDraft] = useState('');
@@ -28,6 +43,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [showRootComposer, setShowRootComposer] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [actionNote, setActionNote] = useState<Note | null>(null);
 
   const stats = useMemo(() => ({
     all: notes.filter((note) => !note.archived).length,
@@ -177,6 +193,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
   const renderFolderTree = (nodes: FolderNode[], parentPath = '') => {
     return nodes.map((node) => {
       const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
+      const depth = Math.max(0, fullPath.split('/').length - 1);
       const isExpanded = expandedFolders.has(fullPath);
       const count = folderCounts.find(([path]) => path === fullPath)?.[1] ?? 0;
       const hasChildren = node.children.length > 0;
@@ -192,7 +209,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
             className={`flex w-full items-center justify-between rounded-xl p-4 text-left transition-colors ${
               activeView.type === 'folder' && activeView.path === fullPath ? 'bg-secondary' : 'hover:bg-secondary'
             }`}
-            style={{ paddingLeft: `calc(1rem + ${(parentPath.match(/\//g) || []).length * 1.5}rem)` }}
+            style={{ paddingLeft: `calc(1rem + ${depth * 1.25}rem)` }}
           >
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {hasChildren && (
@@ -251,20 +268,20 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
           </button>
           {isComposerOpen && (
             <div
-              className="mt-2 mb-2 flex gap-2"
-              style={{ paddingLeft: `calc(2rem + ${(fullPath.match(/\//g) || []).length * 1.5}rem)` }}
+              className="mt-2 mb-2 mr-1 flex min-w-0 gap-2"
+              style={{ marginLeft: `calc(1.5rem + ${(depth + 1) * 1.25}rem)` }}
             >
               <input
                 value={childFolderDraft}
                 onChange={(event) => setChildFolderDraft(event.target.value)}
                 placeholder="Subfolder name"
-                className="flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
+                className="min-w-0 flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
                 autoFocus
               />
               <button
                 onClick={() => handleCreateChildFolder(fullPath)}
                 disabled={!childFolderDraft.trim()}
-                className="rounded-xl bg-foreground px-4 py-3 text-base text-background font-medium disabled:opacity-50 transition-opacity"
+                className="shrink-0 rounded-xl bg-foreground px-4 py-3 text-base text-background font-medium disabled:opacity-50 transition-opacity"
               >
                 <Plus size={18} />
               </button>
@@ -390,23 +407,36 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
           {visibleNotes.length > 0 ? (
             <div className="space-y-3">
               {visibleNotes.map((note) => (
-                <button
+                <div
                   key={note.id}
                   onClick={() => onOpenNote(note)}
                   className="w-full rounded-2xl border border-border bg-[hsl(var(--pr-surface))] px-5 py-4 text-left transition-colors hover:bg-secondary"
                 >
                   <div className="flex items-start justify-between gap-3 mb-1">
                     <p className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</p>
-                    {note.folder && (
-                      <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground flex-shrink-0">
-                        {note.folder.split('/').pop()}
-                      </span>
-                    )}
+                    <div className="ml-2 flex items-center gap-1">
+                      {note.folder && (
+                        <span className="rounded-full bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground flex-shrink-0">
+                          {note.folder.split('/').pop()}
+                        </span>
+                      )}
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActionNote(note);
+                        }}
+                        className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-background/80 hover:text-foreground"
+                        aria-label="Open note actions"
+                        title="More actions"
+                      >
+                        <MoreVertical size={18} />
+                      </button>
+                    </div>
                   </div>
                   {note.content && (
                     <p className="text-sm italic text-muted-foreground line-clamp-2">{note.content}</p>
                   )}
-                </button>
+                </div>
               ))}
             </div>
           ) : (
@@ -416,6 +446,27 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder
           )}
         </div>
       </div>
+
+      {actionNote && (
+        <NoteActions
+          note={actionNote}
+          folders={allFolderPaths}
+          onClose={() => setActionNote(null)}
+          onUpdate={(updates) => {
+            onUpdateNote(actionNote.id, updates);
+            setActionNote(null);
+          }}
+          onCreateFolder={(name) => onCreateFolder(name)}
+          onDuplicate={() => {
+            onDuplicateNote(actionNote);
+            setActionNote(null);
+          }}
+          onDelete={() => {
+            onDeleteNote(actionNote.id);
+            setActionNote(null);
+          }}
+        />
+      )}
 
       {pendingDeleteInfo && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 p-5">

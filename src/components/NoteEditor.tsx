@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ArrowLeft, Share as ShareIcon, Pin, Star, Type } from 'lucide-react';
 import { Share } from '@capacitor/share';
-import type { NoteFont } from '@/lib/store';
+import type { NoteFont, NoteFontSize } from '@/lib/store';
 
 const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
   { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
@@ -19,6 +19,7 @@ interface NoteEditorProps {
   initialFavorite?: boolean;
   initialCreatedAt?: number;
   initialFontFamily?: NoteFont;
+  initialFontSize?: NoteFontSize;
   onSave: (payload: {
     title: string;
     content: string;
@@ -26,6 +27,7 @@ interface NoteEditorProps {
     favorite: boolean;
     createdAt: number;
     fontFamily: NoteFont;
+    fontSize: NoteFontSize;
   }) => void;
   onBack: () => void;
 }
@@ -37,6 +39,7 @@ const NoteEditor = ({
   initialFavorite = false,
   initialCreatedAt,
   initialFontFamily = 'playfair',
+  initialFontSize = 'md',
   onSave,
   onBack,
 }: NoteEditorProps) => {
@@ -46,6 +49,7 @@ const NoteEditor = ({
   const [favorite, setFavorite] = useState(initialFavorite);
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
   const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
+  const [fontSize, setFontSize] = useState<NoteFontSize>(initialFontSize);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved'>('idle');
   const lastSavedSnapshotRef = useRef('');
@@ -84,7 +88,8 @@ const NoteEditor = ({
     favorite,
     createdAt,
     fontFamily,
-  }), [title, content, pinned, favorite, createdAt, fontFamily]);
+    fontSize,
+  }), [title, content, pinned, favorite, createdAt, fontFamily, fontSize]);
 
   const createPayloadSnapshot = useCallback(() => JSON.stringify(buildPayload()), [buildPayload]);
 
@@ -124,12 +129,15 @@ const NoteEditor = ({
   }, []);
 
   // Memoize script font styles
-  const getScriptFontStyles = useCallback((font: NoteFont): React.CSSProperties => {
+  const getScriptFontStyles = useCallback((font: NoteFont, size: NoteFontSize): React.CSSProperties => {
     const scriptFonts = ['great-vibes', 'whispering', 'allura'];
     if (!scriptFonts.includes(font)) return {};
+
+    const basePx = size === 'sm' ? 16 : size === 'lg' ? 24 : 20;
+    const scaledPx = font === 'whispering' ? Math.round(basePx * 1.2) : Math.round(basePx * 1.35);
     
     return {
-      fontSize: font === 'whispering' ? '1.625rem' : '2rem',
+      fontSize: `${scaledPx}px`,
       fontStyle: 'normal',
       letterSpacing: font === 'whispering' ? '0.05em' : '0.1em',
       fontWeight: font === 'whispering' ? 600 : 400,
@@ -137,12 +145,19 @@ const NoteEditor = ({
     };
   }, []);
 
+  const getBaseFontSize = useCallback((size: NoteFontSize): string => {
+    if (size === 'sm') return '1rem';
+    if (size === 'lg') return '1.5rem';
+    return '1.25rem';
+  }, []);
+
   // Memoize textarea styles to prevent recalculation on every render
   const textareaStyles = useMemo(() => ({
     fontFamily: getFontFamily(fontFamily),
+    fontSize: getBaseFontSize(fontSize),
     fontStyle: ['great-vibes', 'whispering', 'allura'].includes(fontFamily) ? 'normal' : 'italic',
-    ...getScriptFontStyles(fontFamily),
-  }), [fontFamily, getFontFamily, getScriptFontStyles]);
+    ...getScriptFontStyles(fontFamily, fontSize),
+  }), [fontFamily, fontSize, getBaseFontSize, getFontFamily, getScriptFontStyles]);
 
   // Memoize event handlers
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -168,6 +183,10 @@ const NoteEditor = ({
   const handleFontSelect = useCallback((font: NoteFont) => {
     setFontFamily(font);
     setFontMenuOpen(false);
+  }, []);
+
+  const handleFontSizeSelect = useCallback((size: NoteFontSize) => {
+    setFontSize(size);
   }, []);
 
   const handleShare = useCallback(async () => {
@@ -274,6 +293,21 @@ const NoteEditor = ({
           {/* Font selector dropdown menu - appears below the font icon */}
           {fontMenuOpen && (
             <div className="absolute top-full right-0 mt-2 bg-background border border-border rounded-lg shadow-lg p-2 flex flex-wrap gap-2 w-max max-w-xs z-50">
+              <div className="flex w-full gap-2 pb-2 mb-1 border-b border-border">
+                {(['sm', 'md', 'lg'] as const).map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => handleFontSizeSelect(size)}
+                    className={`flex-1 rounded-md border px-2 py-1 text-[11px] font-medium ${
+                      fontSize === size
+                        ? 'border-foreground bg-secondary text-foreground'
+                        : 'border-border text-muted-foreground'
+                    }`}
+                  >
+                    {size === 'sm' ? 'Small' : size === 'md' ? 'Medium' : 'Large'}
+                  </button>
+                ))}
+              </div>
               {FONT_OPTIONS.map((option) => (
                 <button
                   key={option.value}
@@ -323,7 +357,7 @@ const NoteEditor = ({
           value={content}
           onChange={handleContentChange}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
+          className="w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
           style={textareaStyles}
         />
       </div>

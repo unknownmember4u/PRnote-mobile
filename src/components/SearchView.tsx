@@ -1,17 +1,33 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mic, X } from 'lucide-react';
+import { ArrowLeft, Mic, MoreVertical, X } from 'lucide-react';
 import type { Note } from '@/lib/store';
+import NoteActions from './NoteActions';
 
 interface SearchViewProps {
   notes: Note[];
+  folders: string[];
   onBack: () => void;
   onOpenNote: (note: Note) => void;
+  onCreateFolder: (name: string) => boolean;
+  onUpdateNote: (id: string, updates: Partial<Note>) => void;
+  onDeleteNote: (id: string) => void;
+  onDuplicateNote: (note: Note) => void;
 }
 
-const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
+const SearchView = ({
+  notes,
+  folders,
+  onBack,
+  onOpenNote,
+  onCreateFolder,
+  onUpdateNote,
+  onDeleteNote,
+  onDuplicateNote,
+}: SearchViewProps) => {
   const [query, setQuery] = useState('');
   const [listening, setListening] = useState(false);
+  const [actionNote, setActionNote] = useState<Note | null>(null);
 
   const priorities = useMemo(() => {
     const levels: Array<'high' | 'medium' | 'low'> = ['high', 'medium', 'low'];
@@ -30,12 +46,35 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
 
   const recent = notes.slice(0, 3);
 
+  const NoteCard = ({ note }: { note: Note }) => (
+    <div
+      onClick={() => onOpenNote(note)}
+      className="w-full text-left p-4 rounded-xl bg-[hsl(var(--pr-surface))] border border-border"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</p>
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            setActionNote(note);
+          }}
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          aria-label="Open note actions"
+          title="More actions"
+        >
+          <MoreVertical size={18} />
+        </button>
+      </div>
+      {note.content && <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{note.content}</p>}
+    </div>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
+      className="fixed inset-0 app-shell bg-background z-50 flex flex-col overflow-hidden"
     >
       {/* Search bar */}
       <div className="px-4 safe-top pb-4">
@@ -62,7 +101,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 hide-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 safe-bottom hide-scrollbar">
         {/* Listening indicator */}
         {listening && (
           <div className="flex flex-col items-center py-8 gap-4">
@@ -85,14 +124,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
             <p className="text-sm font-semibold text-muted-foreground mb-4">Results</p>
             <div className="space-y-3">
               {results.map(n => (
-                <button
-                  key={n.id}
-                  onClick={() => onOpenNote(n)}
-                  className="w-full text-left p-4 rounded-xl bg-[hsl(var(--pr-surface))] border border-border"
-                >
-                  <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
-                  <p className="text-sm text-muted-foreground mt-2 line-clamp-1">{n.content}</p>
-                </button>
+                <NoteCard key={n.id} note={n} />
               ))}
             </div>
           </div>
@@ -112,13 +144,7 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
                 <p className="text-sm font-semibold text-muted-foreground mb-4">Recent</p>
                 <div className="space-y-3">
                   {recent.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => onOpenNote(n)}
-                      className="w-full text-left p-4 rounded-xl bg-[hsl(var(--pr-surface))] border border-border"
-                    >
-                      <p className="text-base font-semibold text-foreground line-clamp-1">{n.title}</p>
-                    </button>
+                    <NoteCard key={n.id} note={n} />
                   ))}
                 </div>
               </div>
@@ -142,6 +168,27 @@ const SearchView = ({ notes, onBack, onOpenNote }: SearchViewProps) => {
           </>
         )}
       </div>
+
+      {actionNote && (
+        <NoteActions
+          note={actionNote}
+          folders={folders}
+          onClose={() => setActionNote(null)}
+          onUpdate={(updates) => {
+            onUpdateNote(actionNote.id, updates);
+            setActionNote(null);
+          }}
+          onCreateFolder={(name) => onCreateFolder(name)}
+          onDuplicate={() => {
+            onDuplicateNote(actionNote);
+            setActionNote(null);
+          }}
+          onDelete={() => {
+            onDeleteNote(actionNote.id);
+            setActionNote(null);
+          }}
+        />
+      )}
     </motion.div>
   );
 };

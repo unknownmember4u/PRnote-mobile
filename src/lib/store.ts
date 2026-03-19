@@ -16,12 +16,15 @@ export interface Note {
   priority: NotePriority;
   folder: string | null;
   fontFamily: NoteFont;
+  fontSize: NoteFontSize;
+  cloudDocId: string | null;
 }
 
 export type NoteLockType = 'none' | 'device' | 'custom';
 export type NotePriority = 'none' | 'low' | 'medium' | 'high';
 
 export type NoteFont = 'playfair' | 'rustico' | 'priestacy' | 'great-vibes' | 'whispering' | 'allura';
+export type NoteFontSize = 'sm' | 'md' | 'lg';
 
 const STORAGE_KEY = 'prnote-notes';
 const ONBOARDED_KEY = 'prnote-onboarded';
@@ -38,6 +41,9 @@ export interface AppSettings {
   theme: ThemeMode;
   spellCheck: boolean;
   defaultFont: string;
+  defaultNoteFont: NoteFont;
+  defaultNoteFontSize: NoteFontSize;
+  accountDefaults: Record<string, { fontFamily: NoteFont; fontSize: NoteFontSize }>;
   folders: FolderNode[];
 }
 
@@ -45,6 +51,9 @@ const defaultSettings: AppSettings = {
   theme: 'light',
   spellCheck: true,
   defaultFont: 'Fraunces',
+  defaultNoteFont: 'whispering',
+  defaultNoteFontSize: 'lg',
+  accountDefaults: {},
   folders: [],
 };
 
@@ -131,9 +140,11 @@ function loadNotes(): Note[] {
       ? parsed.map((note) => ({
           ...note,
           fontFamily: note.fontFamily ?? 'playfair',
+          fontSize: note.fontSize ?? 'md',
           lockType: note.lockType ?? (note.locked ? 'device' : 'none'),
           customLockHash: note.customLockHash ?? null,
           priority: note.priority ?? ((Array.isArray(note.tags) && note.tags.length > 0) ? 'medium' : 'none'),
+          cloudDocId: note.cloudDocId ?? null,
         }))
       : [];
   } catch { return []; }
@@ -155,7 +166,7 @@ export function useNotes() {
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
       lockType: 'none', customLockHash: null,
-      color: null, priority: 'none', folder, fontFamily: 'playfair',
+      color: null, priority: 'none', folder, fontFamily: 'playfair', fontSize: 'md', cloudDocId: null,
     };
     setNotes(prev => [note, ...prev]);
     return note;
@@ -198,6 +209,16 @@ export function useSettings() {
       // Migrate removed "dark" theme to AMOLED
       if (parsed.theme === 'dark') {
         parsed.theme = 'amoled';
+      }
+
+      if (!parsed.defaultNoteFont) {
+        parsed.defaultNoteFont = 'whispering';
+      }
+      if (!parsed.defaultNoteFontSize) {
+        parsed.defaultNoteFontSize = 'lg';
+      }
+      if (!parsed.accountDefaults || typeof parsed.accountDefaults !== 'object') {
+        parsed.accountDefaults = {};
       }
       
       // Migrate flat folder array to tree structure

@@ -14,8 +14,8 @@ import {
 import {
   collection,
   doc,
-  getDocs,
   getFirestore,
+  getDocs,
   serverTimestamp,
   writeBatch,
 } from 'firebase/firestore';
@@ -56,6 +56,32 @@ function getFirebaseDb() {
   return getFirestore(getFirebaseApp());
 }
 
+function slugifyTitle(value: string) {
+  const normalized = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return normalized || 'untitled';
+}
+
+function buildCloudDocId(note: Pick<Note, 'title' | 'createdAt'>) {
+  const created = new Date(note.createdAt);
+  const yyyy = created.getFullYear();
+  const mm = String(created.getMonth() + 1).padStart(2, '0');
+  const dd = String(created.getDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}_${slugifyTitle(note.title)}_${note.createdAt}`;
+}
+
+export function ensureCloudDocIds(notes: Note[]): Note[] {
+  return notes.map((note) => ({
+    ...note,
+    cloudDocId: note.cloudDocId ?? buildCloudDocId(note),
+  }));
+}
+
 export function subscribeToFirebaseUser(callback: (user: User | null) => void) {
   if (!isFirebaseConfigured()) {
     callback(null);
@@ -90,11 +116,22 @@ export async function signInWithGoogle() {
       result = await nativeSignIn(true);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (!message.toLowerCase().includes('no credentials available')) {
+      const lowered = message.toLowerCase();
+
+      // Credential Manager often fails first on some Android devices.
+      if (
+        lowered.includes('no credentials available') ||
+        lowered.includes('credential manager') ||
+        lowered.includes('12501')
+      ) {
+        result = await nativeSignIn(false);
+      } else if (lowered.includes('10') || lowered.includes('developer_error')) {
+        throw new Error(
+          'Google sign-in is misconfigured for Android (error 10). Add your app SHA-1/SHA-256 in Firebase for package com.prnote.app, download a fresh google-services.json, then run cap sync android.'
+        );
+      } else {
         throw error;
       }
-
-      result = await nativeSignIn(false);
     }
 
     const idToken = result.credential?.idToken;
@@ -127,10 +164,6 @@ export async function uploadNotesToFirebase(notes: Note[]) {
 
   const db = getFirebaseDb();
   const userRef = doc(db, 'users', user.uid);
-  const notesCollectionRef = collection(db, 'users', user.uid, 'notes');
-  const existingSnapshot = await getDocs(notesCollectionRef);
-  const existingIds = new Set(existingSnapshot.docs.map((snapshot) => snapshot.id));
-  const incomingIds = new Set(notes.map((note) => note.id));
 
   const writeOps: Array<{ type: 'set' | 'delete'; ref: ReturnType<typeof doc>; data?: Record<string, unknown>; merge?: boolean }> = [
     {
@@ -141,31 +174,39 @@ export async function uploadNotesToFirebase(notes: Note[]) {
         displayName: user.displayName ?? null,
         lastUploadAt: serverTimestamp(),
         noteCount: notes.length,
+        ownerUid: user.uid,
       },
       merge: true,
     },
   ];
 
   notes.forEach((note) => {
+    const cloudDocId = note.cloudDocId ?? buildCloudDocId(note);
     writeOps.push({
       type: 'set',
-      ref: doc(db, 'users', user.uid, 'notes', note.id),
+      ref: doc(db, 'users', user.uid, 'notes', cloudDocId),
       data: {
-        ...note,
-        ownerId: user.uid,
+        title: note.title,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        archived: note.archived,
+        pinned: note.pinned,
+        favorite: note.favorite,
+        priority: note.priority,
+        folder: note.folder,
+        fontFamily: note.fontFamily,
+        fontSize: note.fontSize,
+        lockType: note.lockType,
+        locked: note.locked,
+        customLockHash: note.customLockHash,
+        color: note.color,
+        cloudDocId,
+        ownerUid: user.uid,
         syncedAt: serverTimestamp(),
       },
       merge: true,
     });
-  });
-
-  existingIds.forEach((existingId) => {
-    if (!incomingIds.has(existingId)) {
-      writeOps.push({
-        type: 'delete',
-        ref: doc(db, 'users', user.uid, 'notes', existingId),
-      });
-    }
   });
 
   for (let index = 0; index < writeOps.length; index += 400) {
@@ -181,6 +222,61 @@ export async function uploadNotesToFirebase(notes: Note[]) {
       batch.delete(operation.ref);
     });
 
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+      if (message.includes('missing or insufficient permissions') || message.includes('permission-denied')) {
+        throw new Error(
+          'Firestore permission denied. Update Firestore Rules to allow authenticated users to write /users/{uid} and /users/{uid}/notes/{noteId} where request.auth.uid == uid.'
+        );
+      }
+      throw error;
+    }
   }
+}
+
+export async function downloadNotesFromFirebase(): Promise<Note[]> {
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new Error('Sign in with Google before fetching notes.');
+  }
+
+  const db = getFirebaseDb();
+  const notesSnapshot = await getDocs(collection(db, 'users', user.uid, 'notes'));
+
+  const cloudNotes: Note[] = notesSnapshot.docs.map((noteDoc) => {
+    const raw = noteDoc.data() as Partial<Note>;
+    const createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
+    const updatedAt = typeof raw.updatedAt === 'number' ? raw.updatedAt : createdAt;
+    const cloudDocId = typeof raw.cloudDocId === 'string' && raw.cloudDocId
+      ? raw.cloudDocId
+      : noteDoc.id;
+
+    return {
+      id: cloudDocId,
+      title: typeof raw.title === 'string' ? raw.title : 'Untitled',
+      content: typeof raw.content === 'string' ? raw.content : '',
+      createdAt,
+      updatedAt,
+      pinned: Boolean(raw.pinned),
+      favorite: Boolean(raw.favorite),
+      archived: Boolean(raw.archived),
+      locked: Boolean(raw.locked),
+      lockType: raw.lockType === 'custom' || raw.lockType === 'device' ? raw.lockType : 'none',
+      customLockHash: typeof raw.customLockHash === 'string' ? raw.customLockHash : null,
+      color: typeof raw.color === 'string' ? raw.color : null,
+      priority: raw.priority === 'high' || raw.priority === 'medium' || raw.priority === 'low' ? raw.priority : 'none',
+      folder: typeof raw.folder === 'string' ? raw.folder : null,
+      fontFamily: raw.fontFamily === 'rustico' || raw.fontFamily === 'priestacy' || raw.fontFamily === 'great-vibes' || raw.fontFamily === 'whispering' || raw.fontFamily === 'allura'
+        ? raw.fontFamily
+        : 'playfair',
+      fontSize: raw.fontSize === 'sm' || raw.fontSize === 'lg' ? raw.fontSize : 'md',
+      cloudDocId,
+    };
+  });
+
+  return cloudNotes.sort((left, right) => right.updatedAt - left.updatedAt);
 }

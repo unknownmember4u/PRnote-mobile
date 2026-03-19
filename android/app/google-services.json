@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "223344543984-g94k5gsh12707k0mb73t8dv2t98l21j1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.prnote.app",
+            "certificate_hash": "30b738c0965fa03438187451e098d12e03da3fad"
+          }
+        },
+        {
           "client_id": "223344543984-nl3tebddka7l83gr42a6f2qog4v9cpf9.apps.googleusercontent.com",
           "client_type": 3
         }

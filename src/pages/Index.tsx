@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
-import type { Note, NoteFont } from '@/lib/store';
+import type { Note, NoteFont, NoteFontSize } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
 import { verifySecret, authenticateWithDeviceLock } from '@/lib/note-security';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
@@ -18,7 +18,7 @@ const Index = () => {
   const { done: onboarded, complete: completeOnboarding } = useOnboarded();
   const { notes, addNote, updateNote, deleteNote, setNotes } = useNotes();
   const { settings, update: updateSettings } = useSettings();
-  const cloudBackup = useFirebaseBackup(notes);
+  const cloudBackup = useFirebaseBackup(notes, setNotes);
   const [view, setView] = useState<View>('list');
   const [editingNote, setEditingNote] = useState<Note | null>(null);
   const [newNoteFolderPath, setNewNoteFolderPath] = useState<string | null>(null);
@@ -27,6 +27,71 @@ const Index = () => {
   const [unlockError, setUnlockError] = useState('');
   const [unlockBusy, setUnlockBusy] = useState(false);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  const activeCloudEmail = cloudBackup.user?.email?.toLowerCase() ?? null;
+  const accountDefaults = activeCloudEmail ? settings.accountDefaults?.[activeCloudEmail] : null;
+  const activeDefaultFont: NoteFont = accountDefaults?.fontFamily ?? settings.defaultNoteFont ?? 'whispering';
+  const activeDefaultFontSize: NoteFontSize = accountDefaults?.fontSize ?? settings.defaultNoteFontSize ?? 'lg';
+
+  useEffect(() => {
+    if (!activeCloudEmail) {
+      return;
+    }
+
+    if (settings.accountDefaults?.[activeCloudEmail]) {
+      return;
+    }
+
+    updateSettings({
+      accountDefaults: {
+        ...(settings.accountDefaults ?? {}),
+        [activeCloudEmail]: {
+          fontFamily: settings.defaultNoteFont ?? 'whispering',
+          fontSize: settings.defaultNoteFontSize ?? 'lg',
+        },
+      },
+    });
+  }, [
+    activeCloudEmail,
+    settings.accountDefaults,
+    settings.defaultNoteFont,
+    settings.defaultNoteFontSize,
+    updateSettings,
+  ]);
+
+  const handleDefaultFontChange = useCallback((fontFamily: NoteFont) => {
+    if (!activeCloudEmail) {
+      updateSettings({ defaultNoteFont: fontFamily });
+      return;
+    }
+
+    updateSettings({
+      accountDefaults: {
+        ...(settings.accountDefaults ?? {}),
+        [activeCloudEmail]: {
+          fontFamily,
+          fontSize: (settings.accountDefaults?.[activeCloudEmail]?.fontSize ?? settings.defaultNoteFontSize ?? 'lg') as NoteFontSize,
+        },
+      },
+    });
+  }, [activeCloudEmail, settings.accountDefaults, settings.defaultNoteFontSize, updateSettings]);
+
+  const handleDefaultFontSizeChange = useCallback((fontSize: NoteFontSize) => {
+    if (!activeCloudEmail) {
+      updateSettings({ defaultNoteFontSize: fontSize });
+      return;
+    }
+
+    updateSettings({
+      accountDefaults: {
+        ...(settings.accountDefaults ?? {}),
+        [activeCloudEmail]: {
+          fontFamily: (settings.accountDefaults?.[activeCloudEmail]?.fontFamily ?? settings.defaultNoteFont ?? 'whispering') as NoteFont,
+          fontSize,
+        },
+      },
+    });
+  }, [activeCloudEmail, settings.accountDefaults, settings.defaultNoteFont, updateSettings]);
+
   const handleCreateFolder = useCallback((name: string) => {
     const trimmed = name.trim();
 
@@ -105,6 +170,7 @@ const Index = () => {
       favorite: note.favorite,
       priority: note.priority,
       fontFamily: note.fontFamily,
+      fontSize: note.fontSize,
       locked: false,
       lockType: 'none',
       customLockHash: null,
@@ -134,7 +200,7 @@ const Index = () => {
     setView('editor');
   }, [unlockingNote, unlockInput]);
 
-  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number; fontFamily: NoteFont }) => {
+  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number; fontFamily: NoteFont; fontSize: NoteFontSize }) => {
     if (editingNote) {
       updateNote(editingNote.id, {
         title: payload.title,
@@ -143,6 +209,7 @@ const Index = () => {
         favorite: payload.favorite,
         createdAt: editingNote.createdAt,
         fontFamily: payload.fontFamily,
+        fontSize: payload.fontSize,
       });
     } else {
       const note = addNote(payload.title, payload.content, newNoteFolderPath);
@@ -151,6 +218,7 @@ const Index = () => {
         favorite: payload.favorite,
         createdAt: payload.createdAt,
         fontFamily: payload.fontFamily,
+        fontSize: payload.fontSize,
       });
       setEditingNote({
         ...note,
@@ -160,6 +228,7 @@ const Index = () => {
         favorite: payload.favorite,
         createdAt: payload.createdAt,
         fontFamily: payload.fontFamily,
+        fontSize: payload.fontSize,
       });
     }
   }, [editingNote, updateNote, addNote, newNoteFolderPath]);
@@ -167,17 +236,6 @@ const Index = () => {
   const handleClearAll = useCallback(() => {
     setNotes([]);
   }, [setNotes]);
-
-  const handleExport = useCallback(() => {
-    const data = JSON.stringify(notes, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `prnote-export-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [notes]);
 
   useEffect(() => {
     const handleAndroidBack = (event: Event) => {
@@ -220,7 +278,8 @@ const Index = () => {
             initialPinned={editingNote?.pinned}
             initialFavorite={editingNote?.favorite}
             initialCreatedAt={editingNote?.createdAt}
-            initialFontFamily={editingNote?.fontFamily}
+            initialFontFamily={editingNote?.fontFamily ?? activeDefaultFont}
+            initialFontSize={editingNote?.fontSize ?? activeDefaultFontSize}
             onSave={handleSaveNote}
             onBack={() => {
               setNewNoteFolderPath(null);
@@ -232,8 +291,13 @@ const Index = () => {
           <SearchView
             key="search"
             notes={notes}
+            folders={flattenFolderTree(settings.folders)}
             onBack={() => setView('list')}
-            onOpenNote={(note) => { setEditingNote(note); setView('editor'); }}
+            onOpenNote={handleOpenNote}
+            onCreateFolder={handleCreateFolder}
+            onUpdateNote={updateNote}
+            onDeleteNote={deleteNote}
+            onDuplicateNote={handleDuplicateNote}
           />
         )}
         {view === 'folders' && (
@@ -245,7 +309,10 @@ const Index = () => {
             onCreateFolder={handleCreateFolder}
             onDeleteFolder={handleDeleteFolder}
             onCreateNoteInFolder={handleNewNoteInFolder}
-            onOpenNote={(note) => { setEditingNote(note); setView('editor'); }}
+            onOpenNote={handleOpenNote}
+            onUpdateNote={updateNote}
+            onDeleteNote={deleteNote}
+            onDuplicateNote={handleDuplicateNote}
           />
         )}
         {view === 'settings' && (
@@ -254,14 +321,19 @@ const Index = () => {
             settings={settings}
             noteCount={notes.length}
             onUpdate={updateSettings}
+            defaultNoteFont={activeDefaultFont}
+            defaultNoteFontSize={activeDefaultFontSize}
+            onDefaultNoteFontChange={handleDefaultFontChange}
+            onDefaultNoteFontSizeChange={handleDefaultFontSizeChange}
             onBack={() => setView('list')}
             onClearAll={handleClearAll}
-            onExport={handleExport}
             cloudConfigured={cloudBackup.configured}
             cloudUserEmail={cloudBackup.user?.email ?? null}
+            cloudUserPhotoUrl={cloudBackup.user?.photoURL ?? null}
             cloudBusyAction={cloudBackup.busyAction}
             cloudStatus={cloudBackup.statusMessage}
             cloudLastUploadedAt={cloudBackup.lastUploadedAt}
+            notes={notes}
             onCloudSignIn={cloudBackup.signIn}
             onCloudSignOut={cloudBackup.signOut}
             onCloudUpload={cloudBackup.upload}

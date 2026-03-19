@@ -1,45 +1,71 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Sun, Monitor, Download, Trash2, Cloud, CloudUpload, LogIn, LogOut } from 'lucide-react';
-import type { AppSettings, ThemeMode } from '@/lib/store';
+import { ArrowLeft, Sun, Monitor, Trash2, Cloud, CloudUpload, LogIn, LogOut } from 'lucide-react';
+import type { AppSettings, ThemeMode, Note, NoteFont, NoteFontSize } from '@/lib/store';
 
 interface SettingsViewProps {
   settings: AppSettings;
   noteCount: number;
   onUpdate: (updates: Partial<AppSettings>) => void;
+  defaultNoteFont: NoteFont;
+  defaultNoteFontSize: NoteFontSize;
+  onDefaultNoteFontChange: (font: NoteFont) => void;
+  onDefaultNoteFontSizeChange: (size: NoteFontSize) => void;
   onBack: () => void;
   onClearAll: () => void;
-  onExport: () => void;
   cloudConfigured: boolean;
   cloudUserEmail: string | null;
+  cloudUserPhotoUrl: string | null;
   cloudBusyAction: 'sign-in' | 'sign-out' | 'upload' | null;
   cloudStatus: string;
   cloudLastUploadedAt: string | null;
+  notes: Note[];
   onCloudSignIn: () => void;
   onCloudSignOut: () => void;
-  onCloudUpload: () => void;
+  onCloudUpload: (selectedNoteIds?: string[]) => void;
 }
 
 const SettingsView = ({
   settings,
   noteCount,
   onUpdate,
+  defaultNoteFont,
+  defaultNoteFontSize,
+  onDefaultNoteFontChange,
+  onDefaultNoteFontSizeChange,
   onBack,
   onClearAll,
-  onExport,
   cloudConfigured,
   cloudUserEmail,
+  cloudUserPhotoUrl,
   cloudBusyAction,
   cloudStatus,
   cloudLastUploadedAt,
+  notes,
   onCloudSignIn,
   onCloudSignOut,
   onCloudUpload,
 }: SettingsViewProps) => {
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showUploadPicker, setShowUploadPicker] = useState(false);
+  const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
+  const [profileImageFailed, setProfileImageFailed] = useState(false);
   const themes: { mode: ThemeMode; label: string; icon: any }[] = [
     { mode: 'light', label: 'Light', icon: Sun },
     { mode: 'amoled', label: 'AMOLED', icon: Monitor },
+  ];
+  const fontOptions: Array<{ value: NoteFont; label: string }> = [
+    { value: 'playfair', label: 'Playfair' },
+    { value: 'rustico', label: 'Rustico' },
+    { value: 'priestacy', label: 'Priestacy' },
+    { value: 'great-vibes', label: 'Great Vibes' },
+    { value: 'whispering', label: 'Whispering' },
+    { value: 'allura', label: 'Allura' },
+  ];
+  const fontSizeOptions: Array<{ value: NoteFontSize; label: string }> = [
+    { value: 'sm', label: 'Small' },
+    { value: 'md', label: 'Medium' },
+    { value: 'lg', label: 'Large' },
   ];
 
   const handleConfirmClearAll = () => {
@@ -47,14 +73,38 @@ const SettingsView = ({
     setShowClearAllConfirm(false);
   };
 
+  const openUploadPicker = () => {
+    setSelectedUploadIds([]);
+    setShowUploadPicker(true);
+  };
+
+  const toggleUploadSelection = (noteId: string) => {
+    setSelectedUploadIds((prev) => (prev.includes(noteId) ? prev.filter((id) => id !== noteId) : [...prev, noteId]));
+  };
+
+  const allSelected = notes.length > 0 && selectedUploadIds.length === notes.length;
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedUploadIds([]);
+      return;
+    }
+    setSelectedUploadIds(notes.map((note) => note.id));
+  };
+
+  const handleUploadSelected = () => {
+    onCloudUpload(selectedUploadIds);
+    setShowUploadPicker(false);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 app-shell bg-background z-50 flex flex-col overflow-y-auto"
+      className="fixed inset-0 app-shell bg-background z-50 flex flex-col overflow-hidden"
     >
-      <div className="px-5 safe-top safe-bottom pb-8">
+      <div className="px-5 safe-top safe-bottom pb-4 min-h-0 flex-1 overflow-y-auto hide-scrollbar flex flex-col">
         <div className="flex items-center gap-3 mb-8">
           <button onClick={onBack} className="p-1"><ArrowLeft size={24} className="text-foreground" /></button>
           <h1 className="font-serif-display text-2xl font-semibold text-foreground">Settings</h1>
@@ -78,13 +128,64 @@ const SettingsView = ({
               </button>
             ))}
           </div>
+          <div className="py-4">
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Default Note Font</p>
+            <div className="flex flex-wrap gap-2">
+              {fontOptions.map((font) => (
+                <button
+                  key={font.value}
+                  onClick={() => onDefaultNoteFontChange(font.value)}
+                  className={`rounded-full border px-3 py-2 text-xs font-medium transition-colors ${
+                    defaultNoteFont === font.value
+                      ? 'border-foreground bg-secondary text-foreground'
+                      : 'border-border text-muted-foreground hover:border-foreground/50'
+                  }`}
+                >
+                  {font.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="py-4">
+            <p className="mb-3 text-sm font-medium text-muted-foreground">Default Note Font Size</p>
+            <div className="flex gap-2">
+              {fontSizeOptions.map((size) => (
+                <button
+                  key={size.value}
+                  onClick={() => onDefaultNoteFontSizeChange(size.value)}
+                  className={`flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors ${
+                    defaultNoteFontSize === size.value
+                      ? 'border-foreground bg-secondary text-foreground'
+                      : 'border-border text-muted-foreground hover:border-foreground/50'
+                  }`}
+                >
+                  {size.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {cloudUserEmail ? `Saved for ${cloudUserEmail}.` : 'Sign in with Google to save per-account defaults.'}
+            </p>
+          </div>
         </Section>
 
         <Section title="Cloud Backup">
           <div className="rounded-2xl border border-border bg-card/40 p-5">
             <div className="flex items-start gap-4">
-              <div className="mt-1 rounded-xl bg-secondary p-3">
-                <Cloud size={22} className="text-foreground" />
+              <div className="mt-1 h-14 w-14 overflow-hidden rounded-xl bg-secondary">
+                {cloudUserEmail && cloudUserPhotoUrl && !profileImageFailed ? (
+                  <img
+                    src={cloudUserPhotoUrl}
+                    alt="Google profile"
+                    className="h-full w-full object-cover"
+                    onError={() => setProfileImageFailed(true)}
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <Cloud size={22} className="text-foreground" />
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <p className="text-base font-semibold text-foreground">
@@ -108,10 +209,10 @@ const SettingsView = ({
               ) : (
                 <>
                   <ActionButton
-                    label={cloudBusyAction === 'upload' ? 'Uploading Notes...' : 'Upload Notes to Firebase'}
+                    label={cloudBusyAction === 'upload' ? 'Uploading to Cloud...' : 'Upload Notes to Cloud'}
                     icon={CloudUpload}
                     disabled={cloudBusyAction !== null}
-                    onClick={onCloudUpload}
+                    onClick={openUploadPicker}
                   />
                   <ActionButton
                     label={cloudBusyAction === 'sign-out' ? 'Disconnecting...' : 'Disconnect Google'}
@@ -134,10 +235,6 @@ const SettingsView = ({
 
         {/* Data */}
         <Section title="Data">
-          <button onClick={onExport} className="w-full flex items-center gap-4 py-4 text-foreground">
-            <Download size={22} className="text-muted-foreground" />
-            <span className="text-base font-medium">Export Notes</span>
-          </button>
           <button
             onClick={() => setShowClearAllConfirm(true)}
             className="w-full flex items-center gap-4 py-4 text-destructive"
@@ -147,7 +244,7 @@ const SettingsView = ({
           </button>
         </Section>
 
-        <p className="text-center text-sm text-muted-foreground mt-8">PRnote v2.4.0 • Crafted for clarity.</p>
+        <p className="text-center text-sm text-muted-foreground mt-auto pt-8">PRnote v2.4.0 • Crafted for clarity.</p>
       </div>
 
       {showClearAllConfirm && (
@@ -181,6 +278,79 @@ const SettingsView = ({
                 className="flex-1 rounded-xl bg-destructive py-2.5 text-sm font-medium text-destructive-foreground disabled:opacity-60"
               >
                 Delete All
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showUploadPicker && (
+        <div className="fixed inset-0 z-[75]">
+          <div
+            onClick={() => setShowUploadPicker(false)}
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            className="absolute inset-x-5 top-1/2 -translate-y-1/2 mx-auto max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-foreground">Upload Notes to Cloud</h3>
+              <button
+                onClick={handleToggleSelectAll}
+                className="text-xs font-medium text-muted-foreground underline underline-offset-4"
+              >
+                {allSelected ? 'Deselect All' : 'Select All'}
+              </button>
+            </div>
+
+            <p className="mt-2 text-sm text-muted-foreground">Choose notes to upload now.</p>
+
+            <div className="mt-4 max-h-64 overflow-y-auto rounded-xl border border-border bg-background/50 p-2">
+              {notes.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground">No notes available.</p>
+              ) : (
+                <div className="space-y-1">
+                  {notes.map((note) => (
+                    <button
+                      key={note.id}
+                      onClick={() => toggleUploadSelection(note.id)}
+                      className="flex w-full items-start gap-3 rounded-lg px-3 py-2 text-left hover:bg-secondary"
+                    >
+                      <span
+                        className={`mt-0.5 h-4 w-4 rounded border ${
+                          selectedUploadIds.includes(note.id)
+                            ? 'border-foreground bg-foreground'
+                            : 'border-border bg-transparent'
+                        }`}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-foreground">{note.title || 'Untitled'}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {new Date(note.updatedAt).toLocaleDateString()} {note.archived ? '• Archived' : ''}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowUploadPicker(false)}
+                className="flex-1 rounded-xl border border-border py-2.5 text-sm font-medium text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUploadSelected}
+                disabled={selectedUploadIds.length === 0 || cloudBusyAction !== null}
+                className="flex-1 rounded-xl bg-foreground py-2.5 text-sm font-medium text-background disabled:opacity-50"
+              >
+                Upload Selected ({selectedUploadIds.length})
               </button>
             </div>
           </motion.div>
