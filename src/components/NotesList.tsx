@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { Pin, Plus, Search, Settings, Folder, Star, MoreHorizontal, Archive, RotateCcw, Trash2, ArrowLeft } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
 
@@ -111,27 +111,46 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       {/* Header */}
       <div className="px-5 safe-top pb-2">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="font-serif-display text-2xl font-semibold text-foreground">
-            {showArchivedView ? 'Archived Notes' : 'PRnote'}
-          </h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowArchivedView((current) => !current)}
-              className={`relative p-2 rounded-lg transition-colors ${showArchivedView ? 'bg-secondary text-foreground' : ''}`}
-              title="View archived notes"
-              aria-label="View archived notes"
-            >
-              <Archive size={22} className={showArchivedView ? 'text-foreground' : 'text-muted-foreground'} />
-              {archivedNotes.length > 0 && (
-                <span className="absolute -top-1 -right-1 rounded-full bg-foreground text-background text-[10px] min-w-5 h-5 px-1.5 flex items-center justify-center font-semibold">
-                  {archivedNotes.length}
-                </span>
-              )}
-            </button>
-            <button onClick={onOpenSearch} className="p-2"><Search size={22} className="text-muted-foreground" /></button>
-            <button onClick={onOpenFolders} className="p-2"><Folder size={22} className="text-muted-foreground" /></button>
-            <button onClick={onOpenSettings} className="p-2"><Settings size={22} className="text-muted-foreground" /></button>
-          </div>
+          {showArchivedView ? (
+            <>
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  onClick={() => setShowArchivedView(false)}
+                  className="p-2 -ml-2 rounded-lg transition-colors hover:bg-secondary"
+                  aria-label="Back to notes"
+                  title="Back"
+                >
+                  <ArrowLeft size={22} className="text-foreground" />
+                </button>
+                <h1 className="font-serif-display text-2xl font-semibold text-foreground truncate">Archived Notes</h1>
+              </div>
+              <button onClick={onOpenSettings} className="p-2 rounded-lg transition-colors hover:bg-secondary" aria-label="Open settings">
+                <Settings size={22} className="text-muted-foreground" />
+              </button>
+            </>
+          ) : (
+            <>
+              <h1 className="font-serif-display text-2xl font-semibold text-foreground">PRnote</h1>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setShowArchivedView(true)}
+                  className="relative p-2 rounded-lg transition-colors hover:bg-secondary"
+                  title="View archived notes"
+                  aria-label="View archived notes"
+                >
+                  <Archive size={22} className="text-muted-foreground" />
+                  {archivedNotes.length > 0 && (
+                    <span className="absolute -top-1 -right-1 rounded-full bg-foreground text-background text-[10px] min-w-5 h-5 px-1.5 flex items-center justify-center font-semibold">
+                      {archivedNotes.length}
+                    </span>
+                  )}
+                </button>
+                <button onClick={onOpenSearch} className="p-2 rounded-lg transition-colors hover:bg-secondary"><Search size={22} className="text-muted-foreground" /></button>
+                <button onClick={onOpenFolders} className="p-2 rounded-lg transition-colors hover:bg-secondary"><Folder size={22} className="text-muted-foreground" /></button>
+                <button onClick={onOpenSettings} className="p-2 rounded-lg transition-colors hover:bg-secondary"><Settings size={22} className="text-muted-foreground" /></button>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Tabs */}
