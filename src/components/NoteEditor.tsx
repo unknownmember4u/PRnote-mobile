@@ -231,12 +231,10 @@ const NoteEditor = ({
           value={content}
           onChange={handleContentChange}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-safe overflow-y-auto overscroll-contain"
+          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-2 overflow-y-auto overscroll-contain"
           style={textareaStyles}
         />
       </div>
-
-      <div className="safe-bottom border-t border-border" />
     </div>
   );
 };
