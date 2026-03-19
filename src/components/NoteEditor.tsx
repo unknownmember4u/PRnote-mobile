@@ -1,5 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Share, Pin, Star } from 'lucide-react';
+import type { NoteFont } from '@/lib/store';
+
+const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
+  { value: 'inter', label: 'Inter', family: "'Inter', sans-serif" },
+  { value: 'poppins', label: 'Poppins', family: "'Poppins', sans-serif" },
+  { value: 'merriweather', label: 'Merriweather', family: "'Merriweather', serif" },
+  { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
+  { value: 'mono', label: 'Mono', family: "'JetBrains Mono', monospace" },
+];
 
 interface NoteEditorProps {
   initialTitle?: string;
@@ -7,7 +16,15 @@ interface NoteEditorProps {
   initialPinned?: boolean;
   initialFavorite?: boolean;
   initialCreatedAt?: number;
-  onSave: (payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number }) => void;
+  initialFontFamily?: NoteFont;
+  onSave: (payload: {
+    title: string;
+    content: string;
+    pinned: boolean;
+    favorite: boolean;
+    createdAt: number;
+    fontFamily: NoteFont;
+  }) => void;
   onBack: () => void;
 }
 
@@ -17,6 +34,7 @@ const NoteEditor = ({
   initialPinned = false,
   initialFavorite = false,
   initialCreatedAt,
+  initialFontFamily = 'inter',
   onSave,
   onBack,
 }: NoteEditorProps) => {
@@ -25,6 +43,7 @@ const NoteEditor = ({
   const [pinned, setPinned] = useState(initialPinned);
   const [favorite, setFavorite] = useState(initialFavorite);
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
+  const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -44,6 +63,8 @@ const NoteEditor = ({
     minute: '2-digit',
   });
 
+  const selectedFont = FONT_OPTIONS.find((option) => option.value === fontFamily) ?? FONT_OPTIONS[0];
+
   const handleBack = () => {
     if (title.trim() || content.trim()) {
       onSave({
@@ -52,6 +73,7 @@ const NoteEditor = ({
         pinned,
         favorite,
         createdAt,
+        fontFamily,
       });
     }
     onBack();
@@ -91,17 +113,34 @@ const NoteEditor = ({
           value={title}
           onChange={e => setTitle(e.target.value)}
           placeholder="Title"
-          className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-8"
+          className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-3"
         />
-        <p className="text-base font-semibold text-foreground mb-8">
+        <p className="text-sm font-medium text-muted-foreground mb-5">
           {createdDate} • {createdTime} • {wordCount} words
         </p>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {FONT_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setFontFamily(option.value)}
+              className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+                fontFamily === option.value
+                  ? 'border-foreground bg-secondary text-foreground'
+                  : 'border-border text-muted-foreground'
+              }`}
+              style={{ fontFamily: option.family }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
         <textarea
           ref={contentRef}
           value={content}
           onChange={e => setContent(e.target.value)}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-lg italic text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
+          className="w-full bg-transparent text-xl italic text-foreground placeholder:text-muted-foreground outline-none resize-none min-h-[60vh] leading-relaxed"
+          style={{ fontFamily: selectedFont.family }}
         />
       </div>
 

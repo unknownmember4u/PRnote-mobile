@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
-import type { Note } from '@/lib/store';
+import type { Note, NoteFont } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
 import Onboarding from '@/components/Onboarding';
@@ -79,7 +79,7 @@ const Index = () => {
     setView('editor');
   }, []);
 
-  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number }) => {
+  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number; fontFamily: NoteFont }) => {
     if (editingNote) {
       updateNote(editingNote.id, {
         title: payload.title,
@@ -87,6 +87,7 @@ const Index = () => {
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: editingNote.createdAt,
+        fontFamily: payload.fontFamily,
       });
     } else {
       const note = addNote(payload.title, payload.content, newNoteFolderPath);
@@ -94,6 +95,7 @@ const Index = () => {
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: payload.createdAt,
+        fontFamily: payload.fontFamily,
       });
     }
   }, [editingNote, updateNote, addNote, newNoteFolderPath]);
@@ -155,6 +157,7 @@ const Index = () => {
             initialPinned={editingNote?.pinned}
             initialFavorite={editingNote?.favorite}
             initialCreatedAt={editingNote?.createdAt}
+            initialFontFamily={editingNote?.fontFamily}
             onSave={handleSaveNote}
             onBack={() => {
               setNewNoteFolderPath(null);

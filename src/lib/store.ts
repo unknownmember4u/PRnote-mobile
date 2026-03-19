@@ -13,7 +13,10 @@ export interface Note {
   color: string | null;
   tags: string[];
   folder: string | null;
+  fontFamily: NoteFont;
 }
+
+export type NoteFont = 'inter' | 'poppins' | 'merriweather' | 'playfair' | 'mono';
 
 const STORAGE_KEY = 'prnote-notes';
 const ONBOARDED_KEY = 'prnote-onboarded';
@@ -118,7 +121,10 @@ export function flattenFolderTree(nodes: FolderNode[], prefix = ''): string[] {
 function loadNotes(): Note[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed)
+      ? parsed.map((note) => ({ ...note, fontFamily: note.fontFamily ?? 'inter' }))
+      : [];
   } catch { return []; }
 }
 
@@ -137,7 +143,7 @@ export function useNotes() {
       title, content,
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
-      color: null, tags: [], folder,
+      color: null, tags: [], folder, fontFamily: 'inter',
     };
     setNotes(prev => [note, ...prev]);
     return note;
