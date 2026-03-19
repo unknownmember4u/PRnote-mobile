@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ArrowLeft, Share, Pin, Star, Type } from 'lucide-react';
 import type { NoteFont } from '@/lib/store';
 
@@ -46,11 +46,6 @@ const NoteEditor = ({
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
   const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
-  const contentRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    contentRef.current?.focus();
-  }, []);
 
   // Memoize word count calculation
   const wordCount = useMemo(() => content.split(/\s+/).filter(Boolean).length, [content]);
@@ -90,7 +85,7 @@ const NoteEditor = ({
       fontStyle: 'normal',
       letterSpacing: font === 'whispering' ? '0.05em' : '0.1em',
       fontWeight: font === 'whispering' ? 600 : 400,
-      lineHeight: '1.8',
+      lineHeight: '1.45',
     };
   }, []);
 
@@ -227,11 +222,10 @@ const NoteEditor = ({
           {createdDate} • {createdTime} • {wordCount} words
         </p>
         <textarea
-          ref={contentRef}
           value={content}
           onChange={handleContentChange}
           placeholder="Start writing..."
-          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-relaxed pb-2 overflow-y-auto overscroll-contain"
+          className="w-full bg-transparent text-xl text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
           style={textareaStyles}
         />
       </div>
