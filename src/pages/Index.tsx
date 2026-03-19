@@ -79,11 +79,22 @@ const Index = () => {
     setView('editor');
   }, []);
 
-  const handleSaveNote = useCallback((title: string, content: string) => {
+  const handleSaveNote = useCallback((payload: { title: string; content: string; pinned: boolean; favorite: boolean; createdAt: number }) => {
     if (editingNote) {
-      updateNote(editingNote.id, { title, content });
+      updateNote(editingNote.id, {
+        title: payload.title,
+        content: payload.content,
+        pinned: payload.pinned,
+        favorite: payload.favorite,
+        createdAt: editingNote.createdAt,
+      });
     } else {
-      addNote(title, content, newNoteFolderPath);
+      const note = addNote(payload.title, payload.content, newNoteFolderPath);
+      updateNote(note.id, {
+        pinned: payload.pinned,
+        favorite: payload.favorite,
+        createdAt: payload.createdAt,
+      });
     }
   }, [editingNote, updateNote, addNote, newNoteFolderPath]);
 
@@ -141,6 +152,9 @@ const Index = () => {
             key="editor"
             initialTitle={editingNote?.title}
             initialContent={editingNote?.content}
+            initialPinned={editingNote?.pinned}
+            initialFavorite={editingNote?.favorite}
+            initialCreatedAt={editingNote?.createdAt}
             onSave={handleSaveNote}
             onBack={() => {
               setNewNoteFolderPath(null);
