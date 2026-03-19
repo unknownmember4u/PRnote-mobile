@@ -102,29 +102,57 @@ const NoteEditor = ({
 
   return (
     <div className="fixed inset-0 app-shell bg-background flex flex-col z-50">
-      {/* Header */}
-      <div className="safe-top flex items-center justify-between px-4 py-4 border-b border-border">
+      {/* Header with Top Icons and Font Selector */}
+      <div className="safe-top flex items-start justify-between px-4 py-4 border-b border-border gap-4">
         <button onClick={handleBack} className="p-2 -ml-2">
           <ArrowLeft size={24} className="text-foreground" />
         </button>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPinned((current) => !current)}
-            className="p-2"
-            aria-label={pinned ? 'Unpin note' : 'Pin note'}
-            title={pinned ? 'Unpin note' : 'Pin note'}
-          >
-            <Pin size={22} className={pinned ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
-          </button>
-          <button
-            onClick={() => setFavorite((current) => !current)}
-            className="p-2"
-            aria-label={favorite ? 'Unfavorite note' : 'Favorite note'}
-            title={favorite ? 'Unfavorite note' : 'Favorite note'}
-          >
-            <Star size={22} className={favorite ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
-          </button>
-          <button className="p-2" aria-label="Share note" title="Share note"><Share size={22} className="text-muted-foreground" /></button>
+
+        {/* Center content area */}
+        <div className="flex-1" />
+
+        {/* Right side: Action buttons and Font selector */}
+        <div className="flex flex-col items-end gap-1">
+          {/* Top action buttons */}
+          <div className="flex gap-1">
+            <button
+              onClick={() => setPinned((current) => !current)}
+              className="p-2"
+              aria-label={pinned ? 'Unpin note' : 'Pin note'}
+              title={pinned ? 'Unpin note' : 'Pin note'}
+            >
+              <Pin size={20} className={pinned ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
+            </button>
+            <button
+              onClick={() => setFavorite((current) => !current)}
+              className="p-2"
+              aria-label={favorite ? 'Unfavorite note' : 'Favorite note'}
+              title={favorite ? 'Unfavorite note' : 'Favorite note'}
+            >
+              <Star size={20} className={favorite ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
+            </button>
+            <button className="p-2" aria-label="Share note" title="Share note">
+              <Share size={20} className="text-muted-foreground" />
+            </button>
+          </div>
+
+          {/* Font selector icons - vertical stack */}
+          <div className="flex flex-col gap-1 pt-2 border-t border-border/30">
+            {FONT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setFontFamily(option.value)}
+                className={`p-2 rounded-lg border transition-all ${
+                  fontFamily === option.value
+                    ? 'border-foreground bg-secondary text-foreground shadow-md'
+                    : 'border-border text-muted-foreground hover:border-foreground/50'
+                }`}
+                title={option.label}
+              >
+                <span className="flex items-center justify-center">{option.icon}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -139,27 +167,6 @@ const NoteEditor = ({
         <p className="text-sm font-medium text-muted-foreground mb-5">
           {createdDate} • {createdTime} • {wordCount} words
         </p>
-        {/* Font Selector with Icons */}
-        <div className="mb-5 flex flex-wrap gap-2">
-          {FONT_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setFontFamily(option.value)}
-              className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs transition-all ${
-                fontFamily === option.value
-                  ? 'border-foreground bg-secondary text-foreground shadow-md'
-                  : 'border-border text-muted-foreground hover:border-foreground/50'
-              }`}
-              style={{ fontFamily: option.family }}
-              title={`Switch to ${option.label} font`}
-            >
-              <span className="flex-shrink-0 text-muted-foreground">{option.icon}</span>
-              <span style={{ fontFamily: option.family }} className="font-medium">
-                {option.label}
-              </span>
-            </button>
-          ))}
-        </div>
         <textarea
           ref={contentRef}
           value={content}
