@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Tag, ChevronDown, FilePlus2, FolderPlus } from 'lucide-react';
+import { ArrowLeft, FileText, Star, Clock, Plus, Folder, Tag, ChevronDown, FilePlus2, FolderPlus, Trash2 } from 'lucide-react';
 import type { Note, FolderNode } from '@/lib/store';
 import { flattenFolderTree } from '@/lib/store';
 
@@ -9,6 +9,7 @@ interface FoldersViewProps {
   folderTree: FolderNode[];
   onBack: () => void;
   onCreateFolder: (name: string) => boolean;
+  onDeleteFolder: (path: string) => void;
   onCreateNoteInFolder: (path: string) => void;
   onOpenNote: (note: Note) => void;
 }
@@ -18,11 +19,12 @@ type ActiveView =
   | { type: 'smart'; key: SmartFolderKey; label: string; path: string }
   | { type: 'folder'; path: string; label: string };
 
-const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteInFolder, onOpenNote }: FoldersViewProps) => {
+const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onDeleteFolder, onCreateNoteInFolder, onOpenNote }: FoldersViewProps) => {
   const [activeView, setActiveView] = useState<ActiveView>({ type: 'smart', key: 'all', label: 'All Notes', path: '' });
   const [rootFolderDraft, setRootFolderDraft] = useState('');
   const [childFolderDraft, setChildFolderDraft] = useState('');
   const [childComposerPath, setChildComposerPath] = useState<string | null>(null);
+  const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [showRootComposer, setShowRootComposer] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
 
@@ -133,6 +135,38 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
     setExpandedFolders(newExpanded);
   };
 
+  const handleDeleteFolder = (path: string) => {
+    onDeleteFolder(path);
+
+    setExpandedFolders((prev) => {
+      const next = new Set(Array.from(prev).filter((item) => item !== path && !item.startsWith(`${path}/`)));
+      return next;
+    });
+
+    if (childComposerPath === path || childComposerPath?.startsWith(`${path}/`)) {
+      setChildComposerPath(null);
+      setChildFolderDraft('');
+    }
+
+    if (activeView.type === 'folder' && (activeView.path === path || activeView.path.startsWith(`${path}/`))) {
+      setActiveView({ type: 'smart', key: 'all', label: 'All Notes', path: '' });
+    }
+  };
+
+  const pendingDeleteInfo = useMemo(() => {
+    if (!pendingDeletePath) {
+      return null;
+    }
+
+    const affectedNotes = notes.filter((note) => note.folder === pendingDeletePath || note.folder?.startsWith(`${pendingDeletePath}/`)).length;
+    const affectedSubfolders = allFolderPaths.filter((path) => path.startsWith(`${pendingDeletePath}/`)).length;
+    return {
+      path: pendingDeletePath,
+      affectedNotes,
+      affectedSubfolders,
+    };
+  }, [allFolderPaths, notes, pendingDeletePath]);
+
   const renderFolderTree = (nodes: FolderNode[], parentPath = '') => {
     return nodes.map((node) => {
       const fullPath = parentPath ? `${parentPath}/${node.name}` : node.name;
@@ -193,6 +227,17 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
                 title="New subfolder in this folder"
               >
                 <FolderPlus size={18} />
+              </button>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setPendingDeletePath(fullPath);
+                }}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+                aria-label={`Delete folder ${fullPath}`}
+                title="Delete this folder"
+              >
+                <Trash2 size={18} />
               </button>
               <span className="text-sm font-semibold text-muted-foreground bg-background/50 rounded-full px-2.5 py-1 flex-shrink-0">{count}</span>
             </div>
@@ -272,7 +317,7 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
               </button>
             </div>
           )}
-          <p className="text-xs text-muted-foreground mt-3">Use folder row icons to quickly create notes and nest subfolders directly inside them.</p>
+          <p className="text-xs text-muted-foreground mt-3">Use folder row icons to create notes, add subfolders, or delete folders directly.</p>
         </div>
 
         <p className="text-sm text-muted-foreground font-semibold mb-4">Smart Folders</p>
@@ -351,6 +396,41 @@ const FoldersView = ({ notes, folderTree, onBack, onCreateFolder, onCreateNoteIn
           )}
         </div>
       </div>
+
+      {pendingDeleteInfo && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/45 p-5">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-[hsl(var(--pr-surface))] p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold text-foreground">Delete Folder?</h2>
+            <p className="mt-3 text-sm text-muted-foreground break-all">
+              <span className="font-semibold text-foreground">{pendingDeleteInfo.path}</span>
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              This will remove the folder from Organizer.
+            </p>
+            <div className="mt-3 rounded-xl bg-secondary/70 p-3 text-sm text-foreground">
+              <p>{pendingDeleteInfo.affectedSubfolders} subfolder(s) will also be removed.</p>
+              <p className="mt-1">{pendingDeleteInfo.affectedNotes} note(s) will be moved to All Notes.</p>
+            </div>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => setPendingDeletePath(null)}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleDeleteFolder(pendingDeleteInfo.path);
+                  setPendingDeletePath(null);
+                }}
+                className="rounded-xl bg-destructive px-4 py-2.5 text-sm font-semibold text-destructive-foreground transition-opacity hover:opacity-90"
+              >
+                Delete Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

@@ -78,6 +78,31 @@ export function addFolderToTree(nodes: FolderNode[], path: string): FolderNode[]
   return newNodes;
 }
 
+export function removeFolderFromTree(nodes: FolderNode[], path: string): FolderNode[] {
+  const parts = path.split('/').filter(Boolean);
+  if (parts.length === 0) return nodes;
+
+  const newNodes = JSON.parse(JSON.stringify(nodes));
+  let current = newNodes;
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const found = current.find((node: FolderNode) => node.name === parts[i]);
+    if (!found) {
+      return nodes;
+    }
+    current = found.children;
+  }
+
+  const lastPart = parts[parts.length - 1];
+  const index = current.findIndex((node: FolderNode) => node.name === lastPart);
+  if (index === -1) {
+    return nodes;
+  }
+
+  current.splice(index, 1);
+  return newNodes;
+}
+
 export function flattenFolderTree(nodes: FolderNode[], prefix = ''): string[] {
   const result: string[] = [];
   

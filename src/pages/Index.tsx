@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree } from '@/lib/store';
+import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
 import type { Note } from '@/lib/store';
 import { Capacitor } from '@capacitor/core';
 import { useFirebaseBackup } from '@/hooks/use-firebase-backup';
@@ -15,7 +15,7 @@ type View = 'list' | 'editor' | 'search' | 'folders' | 'settings';
 
 const Index = () => {
   const { done: onboarded, complete: completeOnboarding } = useOnboarded();
-  const { notes, addNote, updateNote, deleteNote } = useNotes();
+  const { notes, addNote, updateNote, deleteNote, setNotes } = useNotes();
   const { settings, update: updateSettings } = useSettings();
   const cloudBackup = useFirebaseBackup(notes);
   const [view, setView] = useState<View>('list');
@@ -38,6 +38,28 @@ const Index = () => {
 
     return true;
   }, [settings.folders, updateSettings]);
+
+  const handleDeleteFolder = useCallback((path: string) => {
+    const trimmedPath = path.trim();
+    if (!trimmedPath) {
+      return;
+    }
+
+    const newFolders = removeFolderFromTree(settings.folders, trimmedPath);
+    updateSettings({ folders: newFolders });
+
+    setNotes((previous) => previous.map((note) => {
+      if (!note.folder) {
+        return note;
+      }
+
+      if (note.folder === trimmedPath || note.folder.startsWith(`${trimmedPath}/`)) {
+        return { ...note, folder: null, updatedAt: Date.now() };
+      }
+
+      return note;
+    }));
+  }, [settings.folders, setNotes, updateSettings]);
 
   const handleNewNote = useCallback(() => {
     setNewNoteFolderPath(null);
@@ -141,6 +163,7 @@ const Index = () => {
             folderTree={settings.folders}
             onBack={() => setView('list')}
             onCreateFolder={handleCreateFolder}
+            onDeleteFolder={handleDeleteFolder}
             onCreateNoteInFolder={handleNewNoteInFolder}
             onOpenNote={(note) => { setEditingNote(note); setView('editor'); }}
           />
