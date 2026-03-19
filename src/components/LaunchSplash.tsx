@@ -49,6 +49,9 @@ const LaunchSplash = ({ visible, isAmoledBranding = false }: LaunchSplashProps) 
                   className="w-[15.5rem] max-w-[82vw] select-none pointer-events-none"
                   draggable={false}
                 />
+                <p className="mt-3 text-sm italic leading-relaxed tracking-[0.03em] text-muted-foreground/90 lowercase">
+                  crafted for clarity
+                </p>
               </motion.div>
             ) : (
               <motion.div
@@ -63,6 +66,9 @@ const LaunchSplash = ({ visible, isAmoledBranding = false }: LaunchSplashProps) 
                   className="w-[15.5rem] max-w-[82vw] select-none pointer-events-none"
                   draggable={false}
                 />
+                <p className="mt-3 text-sm italic leading-relaxed tracking-[0.03em] text-muted-foreground/90 lowercase">
+                  crafted for clarity
+                </p>
               </motion.div>
             )}
 
