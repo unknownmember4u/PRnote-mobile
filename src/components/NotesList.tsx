@@ -283,18 +283,12 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       {!showArchivedView && (
         <button
           onClick={onNewNote}
-          className="fab-animated group fixed safe-bottom-fab safe-right-fab z-30 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg"
+          className="fab-animated fixed safe-bottom-fab safe-right-fab z-30 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg"
           style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
           aria-label="Create new note"
           title="Create new note"
         >
-          <span className="fab-create-icon" aria-hidden="true">
-            <span className="fab-create-icon-mark">+</span>
-            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-top" />
-            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-right" />
-            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-left" />
-            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-bottom" />
-          </span>
+          <span className="fab-plus-mark" aria-hidden="true">+</span>
         </button>
       )}
 

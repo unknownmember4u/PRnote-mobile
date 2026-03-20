@@ -254,80 +254,14 @@ html, body, #root {
       fab-float 3.2s ease-in-out infinite,
       fab-glow 3.2s ease-in-out infinite;
   }
-  .fab-create-icon {
-    position: relative;
-    width: 2rem;
-    height: 2rem;
-    overflow: hidden;
-    border: 2px solid currentColor;
-    border-radius: 0.7rem;
-    transition: border-color 0.5s ease;
-  }
-  .group:hover .fab-create-icon {
-    border-color: currentColor;
-  }
-  .fab-create-icon-mark {
-    position: relative;
-    z-index: 2;
+  .fab-plus-mark {
     display: flex;
-    width: 100%;
-    height: 100%;
     align-items: center;
     justify-content: center;
-    color: currentColor;
-    font-size: 1.6rem;
-    font-weight: 600;
+    font-size: 2rem;
     line-height: 1;
-    transition: transform 0.5s ease, color 0.5s ease;
-  }
-  .group:hover .fab-create-icon-mark {
-    transform: scale(0);
-    color: hsl(var(--foreground));
-  }
-  .fab-create-icon-ribbon {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    background: currentColor;
-    transform: rotate(45deg);
-    transition: top 0.5s ease, right 0.5s ease, bottom 0.5s ease, left 0.5s ease;
-  }
-  .fab-create-icon-ribbon-top {
-    top: 100%;
-    left: 0;
-  }
-  .group:hover .fab-create-icon-ribbon-top {
-    top: 0.75rem;
-  }
-  .fab-create-icon-ribbon-right {
-    top: 0;
-    left: 100%;
-  }
-  .group:hover .fab-create-icon-ribbon-right {
-    left: 0.75rem;
-  }
-  .fab-create-icon-ribbon-left {
-    top: 0;
-    right: 100%;
-  }
-  .group:hover .fab-create-icon-ribbon-left {
-    right: 0.75rem;
-  }
-  .fab-create-icon-ribbon-bottom {
-    right: 0;
-    bottom: 100%;
-  }
-  .group:hover .fab-create-icon-ribbon-bottom {
-    bottom: 0.75rem;
-  }
-  .amoled .fab-create-icon {
-    border-color: hsl(var(--background) / 0.92);
-  }
-  .amoled .group:hover .fab-create-icon {
-    border-color: currentColor;
-  }
-  .amoled .group:hover .fab-create-icon-mark {
-    color: hsl(var(--foreground));
+    font-weight: 400;
+    transform: translateY(-1px);
   }
   .amoled .fab-animated {
     box-shadow:
@@ -340,11 +274,6 @@ html, body, #root {
   @media (prefers-reduced-motion: reduce) {
     .fab-animated {
       animation: none;
-    }
-    .fab-create-icon,
-    .fab-create-icon-mark,
-    .fab-create-icon-ribbon {
-      transition: none;
     }
   }
 }
