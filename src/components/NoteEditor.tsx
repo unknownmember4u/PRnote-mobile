@@ -55,6 +55,7 @@ const NoteEditor = ({
   onBack,
 }: NoteEditorProps) => {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const editorScrollRef = useRef<HTMLDivElement | null>(null);
   const topTextContentRef = useRef<HTMLTextAreaElement | null>(null);
   const bottomTextContentRef = useRef<HTMLTextAreaElement | null>(null);
   const checklistFirstInputRef = useRef<HTMLInputElement | null>(null);
@@ -78,6 +79,10 @@ const NoteEditor = ({
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved'>('idle');
   const lastSavedSnapshotRef = useRef('');
   const isNativeMobile = Capacitor.isNativePlatform() && ['android', 'ios'].includes(Capacitor.getPlatform());
+  const visibleImages = useMemo(
+    () => images.filter((image) => image.visibleIn === noteType),
+    [images, noteType],
+  );
   const content = useMemo(
     () => joinNoteTextSections(contentBeforeImages, contentAfterImages),
     [contentAfterImages, contentBeforeImages],
@@ -247,6 +252,33 @@ const NoteEditor = ({
     target.setSelectionRange(length, length);
   }, [images.length]);
 
+  const scrollFieldIntoView = useCallback((target: HTMLElement | null) => {
+    if (!target || !isNativeMobile) {
+      return;
+    }
+
+    window.setTimeout(() => {
+      target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+    }, 180);
+  }, [isNativeMobile]);
+
+  useEffect(() => {
+    if (!isNativeMobile || !editorScrollRef.current) {
+      return;
+    }
+
+    const container = editorScrollRef.current;
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        scrollFieldIntoView(target);
+      }
+    };
+
+    container.addEventListener('focusin', handleFocusIn);
+    return () => container.removeEventListener('focusin', handleFocusIn);
+  }, [isNativeMobile, scrollFieldIntoView]);
+
   const textareaStyles = useMemo(() => ({
     fontFamily: getFontFamily(fontFamily),
     fontSize: getBaseFontSize(fontSize),
@@ -306,11 +338,12 @@ const NoteEditor = ({
         name: file.name,
         mimeType: file.type,
         dataUrl: result,
+        visibleIn: noteType,
       });
     };
     reader.onerror = () => reject(new Error('Could not read image.'));
     reader.readAsDataURL(file);
-  }), []);
+  }), [noteType]);
 
   const appendImages = useCallback(async (files: File[]) => {
     const supported = files.filter((file) => ['image/jpeg', 'image/jpg', 'image/png'].includes(file.type));
@@ -591,7 +624,7 @@ const NoteEditor = ({
       </div>
 
       {/* Editor */}
-      <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6 py-3">
+      <div ref={editorScrollRef} className="hide-scrollbar flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain px-6 py-3">
         <input
           ref={imageInputRef}
           type="file"
@@ -653,7 +686,7 @@ const NoteEditor = ({
           </button>
         </div>
         {noteType === 'checklist' ? (
-          <div className="flex-1 overflow-y-auto overscroll-contain pb-2">
+          <div className="min-h-0 pb-2">
             <div className="space-y-3">
               {checklistItems.map((item) => (
                 <div key={item.id} className="flex items-center gap-3">
@@ -694,9 +727,9 @@ const NoteEditor = ({
               <Plus size={16} />
               Add item
             </button>
-            {images.length > 0 && (
+            {visibleImages.length > 0 && (
               <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                {images.map((image) => (
+                {visibleImages.map((image) => (
                   <div
                     key={image.id}
                     className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
@@ -720,7 +753,7 @@ const NoteEditor = ({
             )}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto overscroll-contain pb-2">
+          <div className="min-h-0 pb-2">
             <textarea
               ref={topTextContentRef}
               value={contentBeforeImages}
@@ -730,10 +763,10 @@ const NoteEditor = ({
               className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
               style={textareaStyles}
             />
-            {images.length > 0 && (
+            {visibleImages.length > 0 && (
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {images.map((image) => (
+                  {visibleImages.map((image) => (
                     <div
                       key={image.id}
                       className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"

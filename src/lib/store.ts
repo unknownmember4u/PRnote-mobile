@@ -14,6 +14,7 @@ export interface NoteImage {
   name: string;
   mimeType: string;
   dataUrl: string;
+  visibleIn: NoteType;
 }
 
 export interface Note {
@@ -161,11 +162,19 @@ function loadNotes(): Note[] {
           noteType: note.noteType === 'checklist' ? 'checklist' : 'text',
           checklistItems: normalizeChecklistItems(note.checklistItems),
           images: Array.isArray(note.images)
-            ? note.images.filter((image: Partial<NoteImage>) =>
-                typeof image?.id === 'string' &&
-                typeof image?.name === 'string' &&
-                typeof image?.mimeType === 'string' &&
-                typeof image?.dataUrl === 'string')
+            ? note.images
+                .filter((image: Partial<NoteImage>) =>
+                  typeof image?.id === 'string' &&
+                  typeof image?.name === 'string' &&
+                  typeof image?.mimeType === 'string' &&
+                  typeof image?.dataUrl === 'string')
+                .map((image: Partial<NoteImage>) => ({
+                  id: image.id!,
+                  name: image.name!,
+                  mimeType: image.mimeType!,
+                  dataUrl: image.dataUrl!,
+                  visibleIn: image.visibleIn === 'checklist' ? 'checklist' : (note.noteType === 'checklist' ? 'checklist' : 'text'),
+                }))
             : [],
           fontFamily: note.fontFamily ?? 'playfair',
           fontSize: note.fontSize ?? 'md',

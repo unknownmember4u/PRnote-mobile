@@ -280,6 +280,26 @@ function mapDocToNote<T extends { id: string; data: () => Record<string, unknown
     content: typeof raw.content === 'string' ? raw.content : '',
     noteType: raw.noteType === 'checklist' ? 'checklist' : 'text',
     checklistItems: normalizeChecklistItems(raw.checklistItems),
+    images: Array.isArray(raw.images)
+      ? raw.images
+          .filter((image): image is Partial<Note['images'][number]> =>
+            Boolean(
+              image &&
+              typeof image === 'object' &&
+              typeof image.id === 'string' &&
+              typeof image.name === 'string' &&
+              typeof image.mimeType === 'string' &&
+              typeof image.dataUrl === 'string',
+            ),
+          )
+          .map((image) => ({
+            id: image.id!,
+            name: image.name!,
+            mimeType: image.mimeType!,
+            dataUrl: image.dataUrl!,
+            visibleIn: image.visibleIn === 'checklist' ? 'checklist' : (raw.noteType === 'checklist' ? 'checklist' : 'text'),
+          }))
+      : [],
     createdAt,
     updatedAt,
     pinned: Boolean(raw.pinned),
