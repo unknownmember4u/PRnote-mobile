@@ -283,7 +283,7 @@ const Index = () => {
   }
 
   return (
-    <div className={`app-shell w-full relative overflow-hidden bg-background ${isNativeAndroid ? 'android-shell' : 'max-w-md mx-auto border-x border-border/60'}`}>
+    <div className={`app-shell relative w-full overflow-hidden bg-background ${isNativeAndroid ? 'android-shell' : ''}`}>
       <NotesList
         notes={notes}
         folders={flattenFolderTree(settings.folders)}

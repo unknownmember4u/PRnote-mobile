@@ -78,11 +78,13 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       onClick={() => onOpenNote(note)}
-      className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border hover:border-muted-foreground/30 transition-colors"
+      className="w-full cursor-pointer rounded-3xl border border-border bg-[hsl(var(--pr-surface))] p-5 text-left transition-colors hover:border-muted-foreground/30 md:p-6"
     >
-      <div className="flex justify-between items-start">
-        <h3 className="text-base font-semibold text-foreground line-clamp-1 flex-1">{note.title}</h3>
-        <div className="flex items-center gap-1 ml-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-1 text-lg font-semibold text-foreground">{note.title}</h3>
+        </div>
+        <div className="ml-2 flex items-center gap-1">
           {note.favorite && <Star size={18} className="text-muted-foreground fill-muted-foreground" />}
           <button
             onClick={(event) => {
@@ -98,14 +100,14 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
         </div>
       </div>
       {note.noteType === 'checklist' && (
-        <p className="mt-2 text-xs font-medium text-muted-foreground">
+        <p className="mt-3 text-sm font-medium text-muted-foreground">
           {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
         </p>
       )}
       {getNotePreview(note) && (
-        <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{getNotePreview(note)}</p>
+        <p className="mt-3 line-clamp-2 text-base italic leading-relaxed text-muted-foreground">{getNotePreview(note)}</p>
       )}
-      <p className="text-xs text-muted-foreground mt-3">{formatDate(note.updatedAt)}</p>
+      <p className="mt-4 text-sm text-muted-foreground">{formatDate(note.updatedAt)}</p>
     </motion.div>
   );
 
@@ -114,19 +116,19 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full text-left p-4 rounded-2xl bg-[hsl(var(--pr-surface))] border border-border"
+      className="w-full rounded-3xl border border-border bg-[hsl(var(--pr-surface))] p-5 text-left md:p-6"
     >
       <button onClick={() => onOpenNote(note)} className="w-full text-left">
-        <h3 className="text-base font-semibold text-foreground line-clamp-1">{note.title}</h3>
+        <h3 className="line-clamp-1 text-lg font-semibold text-foreground">{note.title}</h3>
         {note.noteType === 'checklist' && (
-          <p className="mt-2 text-xs font-medium text-muted-foreground">
+          <p className="mt-3 text-sm font-medium text-muted-foreground">
             {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
           </p>
         )}
         {getNotePreview(note) && (
-          <p className="text-sm italic text-muted-foreground mt-2 line-clamp-2 leading-relaxed">{getNotePreview(note)}</p>
+          <p className="mt-3 line-clamp-2 text-base italic leading-relaxed text-muted-foreground">{getNotePreview(note)}</p>
         )}
-        <p className="text-xs text-muted-foreground mt-3">Archived on {formatDate(note.updatedAt)}</p>
+        <p className="mt-4 text-sm text-muted-foreground">Archived on {formatDate(note.updatedAt)}</p>
       </button>
       <div className="mt-4 flex gap-2">
         <button
@@ -148,10 +150,9 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   );
 
   return (
-    <div className="relative flex flex-col h-full min-h-0 bg-background">
-      {/* Header */}
-      <div className="px-5 safe-top pb-2">
-        <div className="flex items-center justify-between mb-6">
+    <div className="relative flex h-full min-h-0 flex-col bg-background">
+      <div className="safe-top mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col px-5 pb-4 md:px-6">
+        <div className="mb-8 flex items-center justify-between">
           {showArchivedView ? (
             <>
               <div className="flex items-center gap-2 min-w-0">
@@ -194,73 +195,100 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
           )}
         </div>
 
-        {/* Tabs */}
-        {!showArchivedView && (
-          <div className="flex gap-2 overflow-x-auto hide-scrollbar -mx-1 px-1">
-          {tabs.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-colors ${
-                activeTab === tab
-                  ? 'bg-foreground text-background'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-          </div>
-        )}
-      </div>
-
-      {/* Notes */}
-      <div
-        className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-4 hide-scrollbar touch-pan-y"
-        style={{
-          paddingBottom: 'calc(var(--fab-clearance) + var(--app-safe-bottom) + var(--keyboard-offset))',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
-        {showArchivedView ? (
-          archivedNotes.length > 0 ? (
-            <div className="space-y-4">
-              {archivedNotes.map((n) => <ArchivedNoteCard key={n.id} note={n} />)}
-            </div>
+        <div
+          className="hide-scrollbar flex-1 min-h-0 overflow-y-auto touch-pan-y"
+          style={{
+            paddingBottom: 'calc(var(--fab-clearance) + var(--app-safe-bottom) + var(--keyboard-offset))',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {showArchivedView ? (
+            <section>
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-muted-foreground">Archive</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {archivedNotes.length > 0 ? `${archivedNotes.length} archived notes` : 'No archived notes yet'}
+                  </p>
+                </div>
+              </div>
+              {archivedNotes.length > 0 ? (
+                <div className="space-y-4">
+                  {archivedNotes.map((n) => <ArchivedNoteCard key={n.id} note={n} />)}
+                </div>
+              ) : (
+                <div className="flex h-40 flex-col items-center justify-center rounded-3xl border border-border bg-card/20 text-muted-foreground">
+                  <p className="text-base">No archived notes</p>
+                </div>
+              )}
+            </section>
           ) : (
-            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-              <p className="text-base">No archived notes</p>
+            <div className="space-y-8">
+              <section className="rounded-3xl border border-border bg-card/20 p-4 md:p-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">Browse Notes</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Filter your notes by status and jump straight into archived items when you need them.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {tabs.map(tab => (
+                      <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                          activeTab === tab
+                            ? 'bg-foreground text-background'
+                            : 'border border-border text-muted-foreground hover:bg-secondary'
+                        }`}
+                      >
+                        {tab}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              {pinned.length > 0 && activeTab === 'All' && (
+                <section>
+                  <div className="mb-4 flex items-center gap-3">
+                    <Pin size={18} className="text-muted-foreground" />
+                    <span className="text-sm font-semibold text-muted-foreground">Pinned</span>
+                  </div>
+                  <div className="space-y-4">
+                    {pinned.map((n) => <NoteCard key={n.id} note={n} />)}
+                  </div>
+                </section>
+              )}
+
+              <section>
+                <div className="mb-4 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {activeTab === 'All' ? 'All Notes' : activeTab}
+                  </span>
+                  <span className="text-sm font-semibold text-muted-foreground">
+                    {filtered.length} {filtered.length === 1 ? 'note' : 'notes'}
+                  </span>
+                </div>
+                {unpinned.length > 0 ? (
+                  <div className="space-y-4">
+                    {unpinned.map((n) => <NoteCard key={n.id} note={n} />)}
+                  </div>
+                ) : filtered.length === 0 ? (
+                  <div className="flex h-40 flex-col items-center justify-center rounded-3xl border border-border bg-card/20 text-muted-foreground">
+                    <p className="text-base">No notes yet</p>
+                  </div>
+                ) : null}
+              </section>
             </div>
-          )
-        ) : (
-          <>
-        {pinned.length > 0 && activeTab === 'All' && (
-          <>
-            <div className="flex items-center gap-3 mb-4">
-              <Pin size={18} className="text-muted-foreground" />
-              <span className="text-sm font-semibold text-muted-foreground">Pinned</span>
-            </div>
-            {pinned.map(n => <NoteCard key={n.id} note={n} />)}
-            {unpinned.length > 0 && (
-              <p className="text-sm font-semibold text-muted-foreground mt-6 mb-4">Notes</p>
-            )}
-          </>
-        )}
-        {unpinned.map(n => <NoteCard key={n.id} note={n} />)}
-        {filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-40 text-muted-foreground">
-            <p className="text-base">No notes yet</p>
-          </div>
-        )}
-          </>
-        )}
+          )}
+        </div>
       </div>
 
       {/* FAB */}
       {!showArchivedView && (
         <button
           onClick={onNewNote}
-          className="fab-animated fixed safe-bottom-fab safe-right-fab bg-foreground text-background rounded-full flex items-center justify-center shadow-lg z-30"
+          className="fab-animated fixed safe-bottom-fab safe-right-fab z-30 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg"
           style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
         >
           <span className="fab-plus-icon flex items-center justify-center">

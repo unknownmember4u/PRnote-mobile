@@ -326,10 +326,10 @@ const NoteEditor = ({
   }, [hasMeaningfulContent, buildPayload, onSave, onBack]);
 
   return (
-    <div className="fixed inset-0 app-shell bg-background flex flex-col z-50 overflow-hidden">
+    <div className="fixed inset-0 app-shell z-50 flex flex-col overflow-hidden bg-background">
       {/* Header with Top Icons and Font Selector Menu */}
-      <div className="safe-top sticky top-0 z-20 bg-background flex items-start justify-between px-4 py-4 border-b border-border gap-4">
-        <button onClick={handleBack} className="p-2 -ml-2">
+      <div className="safe-top sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border bg-background px-4 py-4">
+        <button onClick={handleBack} className="p-2 -ml-2" aria-label="Back">
           <ArrowLeft size={24} className="text-foreground" />
         </button>
 
@@ -415,7 +415,7 @@ const NoteEditor = ({
       </div>
 
       {/* Editor */}
-      <div className="flex-1 overflow-hidden px-6 py-3 flex flex-col">
+      <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6 py-3">
         <input
           value={title}
           onChange={handleTitleChange}

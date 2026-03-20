@@ -30,6 +30,16 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
   const [lockError, setLockError] = useState('');
   const [isBusy, setIsBusy] = useState(false);
 
+  const resetLockState = () => {
+    setShowLockPicker(false);
+    setShowCustomLockSetup(false);
+    setShowCustomUnlock(false);
+    setCustomPasscode('');
+    setCustomPasscodeConfirm('');
+    setUnlockPasscode('');
+    setLockError('');
+  };
+
   const updateAndClose = (updates: Partial<Note>) => {
     onUpdate(updates);
     onClose();
@@ -105,6 +115,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     setLockError('');
     const lockHash = await hashSecret(customPasscode);
     setIsBusy(false);
+    resetLockState();
     updateAndClose({ locked: true, lockType: 'custom', customLockHash: lockHash });
   };
 
@@ -139,6 +150,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
       return;
     }
 
+    resetLockState();
     updateAndClose({ locked: false, lockType: 'none', customLockHash: null });
   };
 
@@ -148,7 +160,20 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     { icon: Copy, label: 'Duplicate', action: () => { onDuplicate(); onClose(); } },
     { icon: FolderOpen, label: 'Move', action: () => setShowFolderPicker((current) => !current) },
     { icon: Zap, label: 'Priority', action: () => setShowPriorityPicker((current) => !current) },
-    { icon: Lock, label: note.locked ? 'Unlock' : 'Lock', action: () => (note.locked ? handleUnlockNote() : setShowLockPicker((current) => !current)) },
+    {
+      icon: Lock,
+      label: note.locked ? 'Unlock' : 'Lock',
+      action: () => {
+        if (note.locked) {
+          handleUnlockNote();
+          return;
+        }
+
+        setShowLockPicker((current) => !current);
+        setShowCustomLockSetup(false);
+        setLockError('');
+      },
+    },
     { icon: Archive, label: note.archived ? 'Unarchive' : 'Archive', action: () => updateAndClose({ archived: !note.archived }) },
     { icon: Share, label: 'Share', action: () => handleShareNote() },
   ];
@@ -338,62 +363,13 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
               </button>
               <button
                 onClick={() => {
-                  setShowCustomLockSetup((current) => !current);
+                  setShowCustomLockSetup(true);
                   setLockError('');
                 }}
                 disabled={isBusy}
                 className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
               >
                 Create New Lock
-              </button>
-            </div>
-            {showCustomLockSetup && (
-              <div className="mt-3 space-y-2">
-                <input
-                  value={customPasscode}
-                  onChange={(event) => setCustomPasscode(event.target.value)}
-                  placeholder="Enter passcode"
-                  type="password"
-                  className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                <input
-                  value={customPasscodeConfirm}
-                  onChange={(event) => setCustomPasscodeConfirm(event.target.value)}
-                  placeholder="Confirm passcode"
-                  type="password"
-                  className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                <button
-                  onClick={handleSetupCustomLock}
-                  disabled={isBusy}
-                  className="w-full rounded-xl bg-foreground px-4 py-2.5 text-sm text-background"
-                >
-                  Save Lock
-                </button>
-              </div>
-            )}
-            {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
-          </div>
-        )}
-
-        {showCustomUnlock && (
-          <div className="border-t border-border px-4 pb-4">
-            <h4 className="pt-4 text-sm font-medium text-foreground">Unlock note</h4>
-            <p className="mt-1 text-xs text-muted-foreground">Enter your custom passcode.</p>
-            <div className="mt-3 flex gap-2">
-              <input
-                value={unlockPasscode}
-                onChange={(event) => setUnlockPasscode(event.target.value)}
-                placeholder="Passcode"
-                type="password"
-                className="flex-1 rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              <button
-                onClick={handleCustomUnlockSubmit}
-                disabled={isBusy || !unlockPasscode.trim()}
-                className="rounded-xl bg-foreground px-4 py-2 text-sm text-background disabled:opacity-50"
-              >
-                Unlock
               </button>
             </div>
             {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
@@ -414,6 +390,129 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
           </button>
         </div>
       </motion.div>
+
+      <AnimatePresence>
+        {showCustomLockSetup && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] bg-background/70 backdrop-blur-sm"
+              onClick={() => {
+                setShowCustomLockSetup(false);
+                setCustomPasscode('');
+                setCustomPasscodeConfirm('');
+                setLockError('');
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="fixed inset-x-6 top-1/2 z-[61] mx-auto w-full max-w-md -translate-y-1/2 rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            >
+              <h3 className="text-lg font-semibold text-foreground">Create custom lock</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                Set a passcode for this note. You will need this same passcode every time you unlock it.
+              </p>
+              <div className="mt-5 space-y-3">
+                <input
+                  value={customPasscode}
+                  onChange={(event) => setCustomPasscode(event.target.value)}
+                  placeholder="Enter passcode"
+                  type="password"
+                  autoFocus
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                <input
+                  value={customPasscodeConfirm}
+                  onChange={(event) => setCustomPasscodeConfirm(event.target.value)}
+                  placeholder="Confirm passcode"
+                  type="password"
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCustomLockSetup(false);
+                    setCustomPasscode('');
+                    setCustomPasscodeConfirm('');
+                    setLockError('');
+                  }}
+                  className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSetupCustomLock}
+                  disabled={isBusy}
+                  className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
+                >
+                  Save Lock
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCustomUnlock && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] bg-background/70 backdrop-blur-sm"
+              onClick={() => {
+                setShowCustomUnlock(false);
+                setUnlockPasscode('');
+                setLockError('');
+              }}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              className="fixed inset-x-6 top-1/2 z-[61] mx-auto w-full max-w-md -translate-y-1/2 rounded-3xl border border-border bg-card p-6 shadow-2xl"
+            >
+              <h3 className="text-lg font-semibold text-foreground">Unlock note</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Enter your custom passcode to unlock this note.</p>
+              <input
+                value={unlockPasscode}
+                onChange={(event) => setUnlockPasscode(event.target.value)}
+                placeholder="Passcode"
+                type="password"
+                autoFocus
+                className="mt-5 w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+              />
+              {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
+              <div className="mt-6 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCustomUnlock(false);
+                    setUnlockPasscode('');
+                    setLockError('');
+                  }}
+                  className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomUnlockSubmit}
+                  disabled={isBusy || !unlockPasscode.trim()}
+                  className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
+                >
+                  Unlock
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </>
   );
 };
