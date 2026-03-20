@@ -1,3 +1,6 @@
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import {
   AlignmentType,
   BorderStyle,
@@ -17,6 +20,24 @@ import { getShareText } from '@/lib/note-content';
 export type ExportFormat = 'text' | 'pdf' | 'docx';
 
 type ExportableNote = Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType'>;
+
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      if (!result) {
+        reject(new Error('Could not prepare export file.'));
+        return;
+      }
+
+      const [, base64 = ''] = result.split(',');
+      resolve(base64);
+    };
+    reader.onerror = () => reject(new Error('Could not prepare export file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function getNoteLines(note: ExportableNote): string[] {
   if (note.noteType === 'checklist') {
@@ -221,6 +242,24 @@ function downloadFile(file: File) {
 
 export async function shareOrDownloadNote(note: ExportableNote, format: ExportFormat): Promise<void> {
   const file = await createExportFile(note, format);
+
+  if (Capacitor.isNativePlatform()) {
+    const base64Data = await fileToBase64(file);
+    const saved = await Filesystem.writeFile({
+      path: `exports/${file.name}`,
+      data: base64Data,
+      directory: Directory.Cache,
+      recursive: true,
+    });
+
+    await Share.share({
+      title: note.title.trim() || 'Untitled',
+      text: format === 'text' ? getShareText(note) : undefined,
+      url: saved.uri,
+      dialogTitle: `Export ${format.toUpperCase()}`,
+    });
+    return;
+  }
 
   if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
     try {
