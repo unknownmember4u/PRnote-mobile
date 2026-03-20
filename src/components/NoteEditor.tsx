@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { ArrowLeft, Share as ShareIcon, Pin, Star, Type, CheckSquare2, Square, ListTodo, AlignLeft, Plus, X } from 'lucide-react';
-import { Share } from '@capacitor/share';
-import type { ChecklistItem, NoteFont, NoteFontSize, NoteType } from '@/lib/store';
-import { getChecklistProgress, getNoteWordCount, getShareText, hasNoteContent } from '@/lib/note-content';
+import { Capacitor } from '@capacitor/core';
+import { ArrowLeft, Share as ShareIcon, Pin, Star, Type, CheckSquare2, Square, ListTodo, AlignLeft, Plus, X, ImagePlus } from 'lucide-react';
+import type { ChecklistItem, NoteFont, NoteFontSize, NoteImage, NoteType } from '@/lib/store';
+import { getChecklistProgress, getNoteWordCount, hasNoteContent, joinNoteTextSections, splitNoteTextSections } from '@/lib/note-content';
+import NoteExportModal from './NoteExportModal';
 
 const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
   { value: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
@@ -18,6 +19,7 @@ interface NoteEditorProps {
   initialContent?: string;
   initialNoteType?: NoteType;
   initialChecklistItems?: ChecklistItem[];
+  initialImages?: NoteImage[];
   initialPinned?: boolean;
   initialFavorite?: boolean;
   initialCreatedAt?: number;
@@ -28,6 +30,7 @@ interface NoteEditorProps {
     content: string;
     noteType: NoteType;
     checklistItems: ChecklistItem[];
+    images: NoteImage[];
     pinned: boolean;
     favorite: boolean;
     createdAt: number;
@@ -42,6 +45,7 @@ const NoteEditor = ({
   initialContent = '',
   initialNoteType = 'text',
   initialChecklistItems = [],
+  initialImages = [],
   initialPinned = false,
   initialFavorite = false,
   initialCreatedAt,
@@ -50,20 +54,81 @@ const NoteEditor = ({
   onSave,
   onBack,
 }: NoteEditorProps) => {
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const topTextContentRef = useRef<HTMLTextAreaElement | null>(null);
+  const bottomTextContentRef = useRef<HTMLTextAreaElement | null>(null);
+  const checklistFirstInputRef = useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [title, setTitle] = useState(initialTitle);
-  const [content, setContent] = useState(initialContent);
+  const initialTextSections = useMemo(() => splitNoteTextSections(initialContent), [initialContent]);
+  const [contentBeforeImages, setContentBeforeImages] = useState(initialTextSections.beforeImages);
+  const [contentAfterImages, setContentAfterImages] = useState(initialTextSections.afterImages);
   const [noteType, setNoteType] = useState<NoteType>(initialNoteType);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(
     initialChecklistItems.length > 0 ? initialChecklistItems : [{ id: crypto.randomUUID(), text: '', checked: false }],
   );
+  const [images, setImages] = useState<NoteImage[]>(initialImages);
   const [pinned, setPinned] = useState(initialPinned);
   const [favorite, setFavorite] = useState(initialFavorite);
   const [createdAt] = useState(initialCreatedAt ?? Date.now());
   const [fontFamily, setFontFamily] = useState<NoteFont>(initialFontFamily);
   const [fontSize, setFontSize] = useState<NoteFontSize>(initialFontSize);
   const [fontMenuOpen, setFontMenuOpen] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved'>('idle');
   const lastSavedSnapshotRef = useRef('');
+  const isNativeMobile = Capacitor.isNativePlatform() && ['android', 'ios'].includes(Capacitor.getPlatform());
+  const content = useMemo(
+    () => joinNoteTextSections(contentBeforeImages, contentAfterImages),
+    [contentAfterImages, contentBeforeImages],
+  );
+  const shouldAutoFocusExistingNote = useMemo(
+    () =>
+      Boolean(
+        initialTitle.trim() ||
+        initialContent.trim() ||
+        initialImages.length > 0 ||
+        initialChecklistItems.some((item) => item.text.trim()),
+      ),
+    [initialChecklistItems, initialContent, initialImages.length, initialTitle],
+  );
+
+  useEffect(() => {
+    if (!shouldAutoFocusExistingNote || isNativeMobile) {
+      return;
+    }
+
+    const focusTimer = window.setTimeout(() => {
+      if (noteType === 'checklist') {
+        checklistFirstInputRef.current?.focus();
+        return;
+      }
+
+      const focusTarget = images.length > 0
+        ? bottomTextContentRef.current ?? topTextContentRef.current
+        : topTextContentRef.current;
+      focusTarget?.focus();
+      const length = focusTarget?.value.length ?? 0;
+      focusTarget?.setSelectionRange(length, length);
+    }, 10);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [images.length, isNativeMobile, noteType, shouldAutoFocusExistingNote]);
+
+  useEffect(() => {
+    if (noteType !== 'text') {
+      return;
+    }
+
+    [topTextContentRef.current, bottomTextContentRef.current].forEach((textarea) => {
+      if (!textarea) {
+        return;
+      }
+
+      textarea.style.height = '0px';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    });
+  }, [contentAfterImages, contentBeforeImages, fontFamily, fontSize, noteType]);
 
   // Memoize word count calculation
   const wordCount = useMemo(
@@ -100,12 +165,13 @@ const NoteEditor = ({
     content,
     noteType,
     checklistItems: checklistItems.map((item) => ({ ...item })),
+    images: images.map((image) => ({ ...image })),
     pinned,
     favorite,
     createdAt,
     fontFamily,
     fontSize,
-  }), [title, content, noteType, checklistItems, pinned, favorite, createdAt, fontFamily, fontSize]);
+  }), [title, content, noteType, checklistItems, images, pinned, favorite, createdAt, fontFamily, fontSize]);
 
   const createPayloadSnapshot = useCallback(() => JSON.stringify(buildPayload()), [buildPayload]);
 
@@ -167,7 +233,20 @@ const NoteEditor = ({
     return '1.25rem';
   }, []);
 
-  // Memoize textarea styles to prevent recalculation on every render
+  const focusTextCursorAtEnd = useCallback((section: 'before' | 'after' = 'after') => {
+    const target = section === 'before' || !images.length
+      ? topTextContentRef.current
+      : bottomTextContentRef.current ?? topTextContentRef.current;
+
+    if (!target) {
+      return;
+    }
+
+    target.focus();
+    const length = target.value.length;
+    target.setSelectionRange(length, length);
+  }, [images.length]);
+
   const textareaStyles = useMemo(() => ({
     fontFamily: getFontFamily(fontFamily),
     fontSize: getBaseFontSize(fontSize),
@@ -180,8 +259,95 @@ const NoteEditor = ({
     setTitle(e.target.value);
   }, []);
 
-  const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  const handleContentBeforeImagesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContentBeforeImages(e.target.value);
+  }, []);
+
+  const handleContentAfterImagesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContentAfterImages(e.target.value);
+  }, []);
+
+  const moveImageBlockToCursor = useCallback(() => {
+    if (noteType !== 'text') {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+
+    if (activeElement === topTextContentRef.current && topTextContentRef.current) {
+      const cursorPosition = topTextContentRef.current.selectionStart ?? contentBeforeImages.length;
+      const nextBefore = contentBeforeImages.slice(0, cursorPosition);
+      const movedTail = contentBeforeImages.slice(cursorPosition);
+      setContentBeforeImages(nextBefore);
+      setContentAfterImages(`${movedTail}${contentAfterImages}`);
+      return;
+    }
+
+    if (activeElement === bottomTextContentRef.current && bottomTextContentRef.current) {
+      const cursorPosition = bottomTextContentRef.current.selectionStart ?? contentAfterImages.length;
+      const movedHead = contentAfterImages.slice(0, cursorPosition);
+      const nextAfter = contentAfterImages.slice(cursorPosition);
+      setContentBeforeImages(`${contentBeforeImages}${movedHead}`);
+      setContentAfterImages(nextAfter);
+    }
+  }, [contentAfterImages, contentBeforeImages, noteType]);
+
+  const fileToNoteImage = useCallback((file: File) => new Promise<NoteImage>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : null;
+      if (!result) {
+        reject(new Error('Could not read image.'));
+        return;
+      }
+
+      resolve({
+        id: crypto.randomUUID(),
+        name: file.name,
+        mimeType: file.type,
+        dataUrl: result,
+      });
+    };
+    reader.onerror = () => reject(new Error('Could not read image.'));
+    reader.readAsDataURL(file);
+  }), []);
+
+  const appendImages = useCallback(async (files: File[]) => {
+    const supported = files.filter((file) => ['image/jpeg', 'image/jpg', 'image/png'].includes(file.type));
+    if (supported.length === 0) {
+      return;
+    }
+
+    moveImageBlockToCursor();
+    const nextImages = await Promise.all(supported.map((file) => fileToNoteImage(file)));
+    setImages((current) => [...current, ...nextImages]);
+    window.setTimeout(() => {
+      focusTextCursorAtEnd();
+    }, 0);
+  }, [fileToNoteImage, focusTextCursorAtEnd, moveImageBlockToCursor]);
+
+  const handleImageFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    await appendImages(files);
+    event.target.value = '';
+  }, [appendImages]);
+
+  const handlePaste = useCallback(async (event: React.ClipboardEvent<HTMLElement>) => {
+    const clipboardFiles = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file')
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file));
+
+    if (clipboardFiles.length === 0) {
+      return;
+    }
+
+    event.preventDefault();
+    await appendImages(clipboardFiles);
+  }, [appendImages]);
+
+  const handleRemoveImage = useCallback((id: string) => {
+    setImages((current) => current.filter((image) => image.id !== id));
   }, []);
 
   const ensureChecklistHasRow = useCallback(() => {
@@ -216,6 +382,17 @@ const NoteEditor = ({
 
   const handleFontSizeSelect = useCallback((size: NoteFontSize) => {
     setFontSize(size);
+  }, []);
+
+  const resizeContentFont = useCallback((direction: 'increase' | 'decrease') => {
+    setFontSize((current) => {
+      const order: NoteFontSize[] = ['sm', 'md', 'lg'];
+      const currentIndex = order.indexOf(current);
+      const nextIndex = direction === 'increase'
+        ? Math.min(order.length - 1, currentIndex + 1)
+        : Math.max(0, currentIndex - 1);
+      return order[nextIndex];
+    });
   }, []);
 
   const handleChecklistItemChange = useCallback((id: string, text: string) => {
@@ -269,45 +446,6 @@ const NoteEditor = ({
     }
   }, [checklistItems.length, handleAddChecklistItem, handleRemoveChecklistItem]);
 
-  const handleShare = useCallback(async () => {
-    const trimmedTitle = title.trim() || 'Untitled';
-    const shareText = getShareText({ title: trimmedTitle, content, checklistItems, noteType });
-
-    try {
-      const canNativeShare = await Share.canShare();
-      if (canNativeShare.value) {
-        await Share.share({
-          title: trimmedTitle,
-          text: shareText,
-          dialogTitle: 'Share note',
-        });
-        return;
-      }
-    } catch {
-      // Fall through to web and clipboard fallback.
-    }
-
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share({
-          title: trimmedTitle,
-          text: shareText,
-        });
-        return;
-      } catch {
-        // User-cancel and unsupported cases continue to clipboard fallback.
-      }
-    }
-
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(shareText);
-      } catch {
-        // No-op if clipboard is unavailable.
-      }
-    }
-  }, [title, content, checklistItems, noteType]);
-
   const checklistProgress = useMemo(
     () => getChecklistProgress({ noteType, checklistItems }),
     [noteType, checklistItems],
@@ -317,18 +455,48 @@ const NoteEditor = ({
     if (hasMeaningfulContent) {
       const payload = buildPayload();
       const snapshot = JSON.stringify(payload);
-      if (snapshot !== lastSavedSnapshotRef.current) {
-        onSave(payload);
+    if (snapshot !== lastSavedSnapshotRef.current) {
+      onSave(payload);
         lastSavedSnapshotRef.current = snapshot;
       }
     }
     onBack();
   }, [hasMeaningfulContent, buildPayload, onSave, onBack]);
 
+  const focusNoteContent = useCallback(() => {
+    if (noteType === 'checklist') {
+      checklistFirstInputRef.current?.focus();
+      return;
+    }
+
+    focusTextCursorAtEnd(images.length > 0 ? 'after' : 'before');
+  }, [focusTextCursorAtEnd, images.length, noteType]);
+
+  const handleTitleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    event.preventDefault();
+    focusNoteContent();
+  }, [focusNoteContent]);
+
+  const handleContentWheel = useCallback((event: React.WheelEvent<HTMLElement>) => {
+    const activeElement = document.activeElement;
+    const currentTarget = event.currentTarget;
+
+    if (!currentTarget.contains(activeElement)) {
+      return;
+    }
+
+    event.preventDefault();
+    resizeContentFont(event.deltaY < 0 ? 'increase' : 'decrease');
+  }, [resizeContentFont]);
+
   return (
-    <div className="fixed inset-0 app-shell z-50 flex flex-col overflow-hidden bg-background">
+    <div className="fixed inset-0 app-shell z-50 flex flex-col overflow-hidden bg-background" onPaste={handlePaste}>
       {/* Header with Top Icons and Font Selector Menu */}
-      <div className="safe-top sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border bg-background px-4 py-4">
+      <div className="sticky top-0 z-20 flex items-start justify-between gap-4 border-b border-border bg-background px-6 py-6 md:px-7 md:py-7">
         <button onClick={handleBack} className="p-2 -ml-2" aria-label="Back">
           <ArrowLeft size={24} className="text-foreground" />
         </button>
@@ -356,8 +524,16 @@ const NoteEditor = ({
             >
               <Star size={20} className={favorite ? 'text-foreground fill-foreground' : 'text-muted-foreground'} />
             </button>
-            <button onClick={handleShare} className="p-2" aria-label="Share note" title="Share note">
+            <button onClick={() => setShowExportModal(true)} className="p-2" aria-label="Share note" title="Share note">
               <ShareIcon size={20} className="text-muted-foreground" />
+            </button>
+            <button
+              onClick={() => imageInputRef.current?.click()}
+              className="p-2"
+              aria-label="Add image"
+              title="Add image"
+            >
+              <ImagePlus size={20} className="text-muted-foreground" />
             </button>
             {/* Font selector root icon */}
             <button
@@ -417,8 +593,18 @@ const NoteEditor = ({
       {/* Editor */}
       <div className="flex flex-1 min-h-0 flex-col overflow-hidden px-6 py-3">
         <input
+          ref={imageInputRef}
+          type="file"
+          accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+          multiple
+          className="hidden"
+          onChange={handleImageFileChange}
+        />
+        <input
+          ref={titleInputRef}
           value={title}
           onChange={handleTitleChange}
+          onKeyDown={handleTitleKeyDown}
           placeholder="Title"
           className="w-full bg-transparent text-3xl font-serif-display font-semibold text-foreground placeholder:text-muted-foreground outline-none mb-2"
         />
@@ -480,9 +666,11 @@ const NoteEditor = ({
                     {item.checked ? <CheckSquare2 size={20} className="text-foreground" /> : <Square size={20} />}
                   </button>
                   <input
+                    ref={item.id === checklistItems[0]?.id ? checklistFirstInputRef : null}
                     value={item.text}
                     onChange={(event) => handleChecklistItemChange(item.id, event.target.value)}
                     onKeyDown={(event) => handleChecklistKeyDown(event, item)}
+                    onWheel={handleContentWheel}
                     placeholder="List item"
                     className={`min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground ${
                       item.checked ? 'text-muted-foreground line-through' : 'text-foreground'
@@ -506,17 +694,91 @@ const NoteEditor = ({
               <Plus size={16} />
               Add item
             </button>
+            {images.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                {images.map((image) => (
+                  <div
+                    key={image.id}
+                    className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
+                    onClick={focusTextCursorAtEnd}
+                  >
+                    <img src={image.dataUrl} alt={image.name} className="max-h-[32rem] w-full rounded-xl object-contain" />
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRemoveImage(image.id);
+                      }}
+                      className="absolute right-3 top-3 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm"
+                      aria-label={`Remove ${image.name}`}
+                      title="Remove image"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
-          <textarea
-            value={content}
-            onChange={handleContentChange}
-            placeholder="Start writing..."
-            className="w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none flex-1 leading-[1.4] pb-2 overflow-y-auto overscroll-contain"
-            style={textareaStyles}
-          />
+          <div className="flex-1 overflow-y-auto overscroll-contain pb-2">
+            <textarea
+              ref={topTextContentRef}
+              value={contentBeforeImages}
+              onChange={handleContentBeforeImagesChange}
+              onWheel={handleContentWheel}
+              placeholder="Start writing..."
+              className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
+              style={textareaStyles}
+            />
+            {images.length > 0 && (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {images.map((image) => (
+                    <div
+                      key={image.id}
+                      className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
+                      onClick={() => focusTextCursorAtEnd('after')}
+                    >
+                      <img src={image.dataUrl} alt={image.name} className="max-h-[32rem] w-full rounded-xl object-contain" />
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRemoveImage(image.id);
+                        }}
+                        className="absolute right-3 top-3 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm"
+                        aria-label={`Remove ${image.name}`}
+                        title="Remove image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <textarea
+                  ref={bottomTextContentRef}
+                  value={contentAfterImages}
+                  onChange={handleContentAfterImagesChange}
+                  onWheel={handleContentWheel}
+                  placeholder="Continue writing..."
+                  className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
+                  style={textareaStyles}
+                />
+              </div>
+            )}
+          </div>
         )}
       </div>
+
+      <NoteExportModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        note={{
+          title: title.trim() || 'Untitled',
+          content,
+          checklistItems,
+          noteType,
+        }}
+      />
     </div>
   );
 };

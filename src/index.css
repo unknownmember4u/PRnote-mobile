@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Lora:wght@400;600&family=Fredoka+One&family=Great+Vibes&family=Dancing+Script:wght@400;600;700&family=Allura&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Playfair+Display:wght@400;600;700&family=Lora:wght@400;600;700&family=Fredoka:wght@400;500;600&family=Great+Vibes&family=Dancing+Script:wght@400;600;700&family=Allura&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -200,24 +200,6 @@ html, body, #root {
     }
   }
 
-  @keyframes fab-icon-wiggle {
-    0%, 100% {
-      transform: rotate(0deg) scale(1);
-    }
-    20% {
-      transform: rotate(-7deg) scale(0.96);
-    }
-    34% {
-      transform: rotate(7deg) scale(1.06);
-    }
-    48% {
-      transform: rotate(-4deg) scale(0.98);
-    }
-    62% {
-      transform: rotate(0deg) scale(1.04);
-    }
-  }
-
   .font-serif-display {
     font-family: 'Fraunces', serif;
   }
@@ -239,6 +221,11 @@ html, body, #root {
     padding-right: var(--app-safe-right);
     padding-left: var(--app-safe-left);
     box-sizing: border-box;
+  }
+  @media (min-width: 1024px) {
+    .app-shell {
+      padding-top: 0;
+    }
   }
   .android-shell {
     max-width: 100%;
@@ -267,10 +254,80 @@ html, body, #root {
       fab-float 3.2s ease-in-out infinite,
       fab-glow 3.2s ease-in-out infinite;
   }
-  .fab-plus-icon {
-    will-change: transform;
-    transform: translateZ(0);
-    animation: fab-icon-wiggle 3.2s ease-in-out infinite;
+  .fab-create-icon {
+    position: relative;
+    width: 2rem;
+    height: 2rem;
+    overflow: hidden;
+    border: 2px solid currentColor;
+    border-radius: 0.7rem;
+    transition: border-color 0.5s ease;
+  }
+  .group:hover .fab-create-icon {
+    border-color: currentColor;
+  }
+  .fab-create-icon-mark {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1;
+    transition: transform 0.5s ease, color 0.5s ease;
+  }
+  .group:hover .fab-create-icon-mark {
+    transform: scale(0);
+    color: hsl(var(--foreground));
+  }
+  .fab-create-icon-ribbon {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: currentColor;
+    transform: rotate(45deg);
+    transition: top 0.5s ease, right 0.5s ease, bottom 0.5s ease, left 0.5s ease;
+  }
+  .fab-create-icon-ribbon-top {
+    top: 100%;
+    left: 0;
+  }
+  .group:hover .fab-create-icon-ribbon-top {
+    top: 0.75rem;
+  }
+  .fab-create-icon-ribbon-right {
+    top: 0;
+    left: 100%;
+  }
+  .group:hover .fab-create-icon-ribbon-right {
+    left: 0.75rem;
+  }
+  .fab-create-icon-ribbon-left {
+    top: 0;
+    right: 100%;
+  }
+  .group:hover .fab-create-icon-ribbon-left {
+    right: 0.75rem;
+  }
+  .fab-create-icon-ribbon-bottom {
+    right: 0;
+    bottom: 100%;
+  }
+  .group:hover .fab-create-icon-ribbon-bottom {
+    bottom: 0.75rem;
+  }
+  .amoled .fab-create-icon {
+    border-color: hsl(var(--background) / 0.92);
+  }
+  .amoled .group:hover .fab-create-icon {
+    border-color: currentColor;
+  }
+  .amoled .group:hover .fab-create-icon-mark {
+    color: hsl(var(--foreground));
   }
   .amoled .fab-animated {
     box-shadow:
@@ -279,14 +336,15 @@ html, body, #root {
       0 0 0 4px hsl(var(--foreground) / 0.08);
     animation: fab-amoled-bob 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
-  .amoled .fab-plus-icon {
-    animation: fab-icon-wiggle 2.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  }
 
   @media (prefers-reduced-motion: reduce) {
-    .fab-animated,
-    .fab-plus-icon {
+    .fab-animated {
       animation: none;
+    }
+    .fab-create-icon,
+    .fab-create-icon-mark,
+    .fab-create-icon-ribbon {
+      transition: none;
     }
   }
 }

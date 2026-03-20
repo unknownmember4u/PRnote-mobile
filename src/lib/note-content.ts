@@ -1,9 +1,36 @@
 import type { Note } from '@/lib/store';
 
+export const NOTE_IMAGE_BREAK_MARKER = '\n[[PRNOTE_IMAGE_BREAK]]\n';
+
 export interface ChecklistItem {
   id: string;
   text: string;
   checked: boolean;
+}
+
+export function splitNoteTextSections(content: string) {
+  const markerIndex = content.indexOf(NOTE_IMAGE_BREAK_MARKER);
+
+  if (markerIndex === -1) {
+    return { beforeImages: content, afterImages: '' };
+  }
+
+  return {
+    beforeImages: content.slice(0, markerIndex),
+    afterImages: content.slice(markerIndex + NOTE_IMAGE_BREAK_MARKER.length),
+  };
+}
+
+export function joinNoteTextSections(beforeImages: string, afterImages: string) {
+  if (!afterImages.trim()) {
+    return beforeImages;
+  }
+
+  return `${beforeImages}${NOTE_IMAGE_BREAK_MARKER}${afterImages}`;
+}
+
+export function stripNoteTextMarkers(content: string) {
+  return content.split(NOTE_IMAGE_BREAK_MARKER).join('\n\n');
 }
 
 export function normalizeChecklistItems(value: unknown): ChecklistItem[] {
@@ -37,7 +64,7 @@ export function getNoteBodyText(note: Pick<Note, 'content' | 'checklistItems' | 
       .join(' ');
   }
 
-  return note.content;
+  return stripNoteTextMarkers(note.content);
 }
 
 export function getNoteWordCount(note: Pick<Note, 'content' | 'checklistItems' | 'noteType'>): number {
@@ -66,7 +93,7 @@ export function getNotePreview(note: Pick<Note, 'content' | 'checklistItems' | '
     return meaningfulItems.slice(0, 3).join(' • ');
   }
 
-  return note.content.trim();
+  return stripNoteTextMarkers(note.content).trim();
 }
 
 export function getShareText(note: Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType'>): string {
@@ -80,7 +107,7 @@ export function getShareText(note: Pick<Note, 'title' | 'content' | 'checklistIt
     return [title, ...lines].join('\n').trim();
   }
 
-  const content = note.content.trim();
+  const content = stripNoteTextMarkers(note.content).trim();
   return content ? `${title}\n\n${content}` : title;
 }
 
@@ -93,11 +120,11 @@ export function hasNoteContent(note: Pick<Note, 'title' | 'content' | 'checklist
     return note.checklistItems.some((item) => item.text.trim());
   }
 
-  return Boolean(note.content.trim());
+  return Boolean(stripNoteTextMarkers(note.content).trim());
 }
 
 export function getNoteSearchText(note: Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType' | 'priority'>): string {
   const checklistText = note.checklistItems.map((item) => item.text).join(' ');
   const priorityText = note.priority !== 'none' ? `${note.priority} priority` : '';
-  return [note.title, note.content, checklistText, priorityText].join(' ').toLowerCase();
+  return [note.title, stripNoteTextMarkers(note.content), checklistText, priorityText].join(' ').toLowerCase();
 }

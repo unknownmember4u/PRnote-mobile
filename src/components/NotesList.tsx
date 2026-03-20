@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pin, Plus, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft, MoreVertical } from 'lucide-react';
+import { Pin, Search, Settings, Folder, Star, Archive, RotateCcw, Trash2, ArrowLeft, MoreVertical } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
-import { getChecklistProgress, getNotePreview } from '@/lib/note-content';
 
 interface NotesListProps {
   notes: Note[];
@@ -68,10 +67,6 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
   const pinned = filtered.filter(n => n.pinned && activeTab === 'All');
   const unpinned = activeTab === 'All' ? filtered.filter(n => !n.pinned) : filtered;
 
-  const formatDate = (ts: number) => {
-    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
-
   const NoteCard = ({ note }: { note: Note }) => (
     <motion.div
       layout
@@ -82,7 +77,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-1 text-lg font-semibold text-foreground">{note.title}</h3>
+          <h3 className="font-serif-display line-clamp-1 text-[1.45rem] font-semibold leading-tight text-foreground">{note.title}</h3>
         </div>
         <div className="ml-2 flex items-center gap-1">
           {note.favorite && <Star size={18} className="text-muted-foreground fill-muted-foreground" />}
@@ -99,15 +94,6 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
           </button>
         </div>
       </div>
-      {note.noteType === 'checklist' && (
-        <p className="mt-3 text-sm font-medium text-muted-foreground">
-          {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
-        </p>
-      )}
-      {getNotePreview(note) && (
-        <p className="mt-3 line-clamp-2 text-base italic leading-relaxed text-muted-foreground">{getNotePreview(note)}</p>
-      )}
-      <p className="mt-4 text-sm text-muted-foreground">{formatDate(note.updatedAt)}</p>
     </motion.div>
   );
 
@@ -119,16 +105,7 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       className="w-full rounded-3xl border border-border bg-[hsl(var(--pr-surface))] p-5 text-left md:p-6"
     >
       <button onClick={() => onOpenNote(note)} className="w-full text-left">
-        <h3 className="line-clamp-1 text-lg font-semibold text-foreground">{note.title}</h3>
-        {note.noteType === 'checklist' && (
-          <p className="mt-3 text-sm font-medium text-muted-foreground">
-            {getChecklistProgress(note).completed}/{getChecklistProgress(note).total} completed
-          </p>
-        )}
-        {getNotePreview(note) && (
-          <p className="mt-3 line-clamp-2 text-base italic leading-relaxed text-muted-foreground">{getNotePreview(note)}</p>
-        )}
-        <p className="mt-4 text-sm text-muted-foreground">Archived on {formatDate(note.updatedAt)}</p>
+        <h3 className="font-serif-display line-clamp-1 text-[1.45rem] font-semibold leading-tight text-foreground">{note.title}</h3>
       </button>
       <div className="mt-4 flex gap-2">
         <button
@@ -151,8 +128,8 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
 
   return (
     <div className="relative flex h-full min-h-0 flex-col bg-background">
-      <div className="safe-top mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col px-5 pb-4 md:px-6">
-        <div className="mb-8 flex items-center justify-between">
+      <div className="mx-auto flex h-full min-h-0 w-full max-w-[1920px] flex-col px-6 pb-4 md:px-7">
+        <div className="sticky top-0 z-20 -mx-6 mb-8 flex items-center justify-between border-b border-border bg-background px-6 py-6 md:-mx-7 md:px-7 md:py-7">
           {showArchivedView ? (
             <>
               <div className="flex items-center gap-2 min-w-0">
@@ -288,11 +265,17 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
       {!showArchivedView && (
         <button
           onClick={onNewNote}
-          className="fab-animated fixed safe-bottom-fab safe-right-fab z-30 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg"
+          className="fab-animated group fixed safe-bottom-fab safe-right-fab z-30 flex items-center justify-center rounded-full bg-foreground text-background shadow-lg"
           style={{ width: 'var(--fab-size)', height: 'var(--fab-size)' }}
+          aria-label="Create new note"
+          title="Create new note"
         >
-          <span className="fab-plus-icon flex items-center justify-center">
-            <Plus size={24} />
+          <span className="fab-create-icon" aria-hidden="true">
+            <span className="fab-create-icon-mark">+</span>
+            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-top" />
+            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-right" />
+            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-left" />
+            <span className="fab-create-icon-ribbon fab-create-icon-ribbon-bottom" />
           </span>
         </button>
       )}

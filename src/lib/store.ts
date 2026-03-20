@@ -9,12 +9,20 @@ export interface ChecklistItem {
   checked: boolean;
 }
 
+export interface NoteImage {
+  id: string;
+  name: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
 export interface Note {
   id: string;
   title: string;
   content: string;
   noteType: NoteType;
   checklistItems: ChecklistItem[];
+  images: NoteImage[];
   createdAt: number;
   updatedAt: number;
   pinned: boolean;
@@ -152,6 +160,13 @@ function loadNotes(): Note[] {
           ...note,
           noteType: note.noteType === 'checklist' ? 'checklist' : 'text',
           checklistItems: normalizeChecklistItems(note.checklistItems),
+          images: Array.isArray(note.images)
+            ? note.images.filter((image: Partial<NoteImage>) =>
+                typeof image?.id === 'string' &&
+                typeof image?.name === 'string' &&
+                typeof image?.mimeType === 'string' &&
+                typeof image?.dataUrl === 'string')
+            : [],
           fontFamily: note.fontFamily ?? 'playfair',
           fontSize: note.fontSize ?? 'md',
           lockType: note.lockType ?? (note.locked ? 'device' : 'none'),
@@ -178,6 +193,7 @@ export function useNotes() {
       title, content,
       noteType: 'text',
       checklistItems: [],
+      images: [],
       createdAt: Date.now(), updatedAt: Date.now(),
       pinned: false, favorite: false, archived: false, locked: false,
       lockType: 'none', customLockHash: null,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { useNotes, useOnboarded, useSettings, addFolderToTree, flattenFolderTree, removeFolderFromTree } from '@/lib/store';
 import type { ChecklistItem, Note, NoteFont, NoteFontSize, NoteType } from '@/lib/store';
@@ -37,6 +37,7 @@ const Index = () => {
   const [unlockInput, setUnlockInput] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [unlockBusy, setUnlockBusy] = useState(false);
+  const unlockInputRef = useRef<HTMLInputElement | null>(null);
   const isNativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const activeCloudEmail = cloudBackup.user?.email?.toLowerCase() ?? null;
   const accountDefaults = activeCloudEmail ? settings.accountDefaults?.[activeCloudEmail] : null;
@@ -218,6 +219,7 @@ const Index = () => {
     content: string;
     noteType: NoteType;
     checklistItems: ChecklistItem[];
+    images: Note['images'];
     pinned: boolean;
     favorite: boolean;
     createdAt: number;
@@ -230,6 +232,7 @@ const Index = () => {
         content: payload.content,
         noteType: payload.noteType,
         checklistItems: payload.checklistItems,
+        images: payload.images,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: editingNote.createdAt,
@@ -241,6 +244,7 @@ const Index = () => {
       updateNote(note.id, {
         noteType: payload.noteType,
         checklistItems: payload.checklistItems,
+        images: payload.images,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: payload.createdAt,
@@ -253,6 +257,7 @@ const Index = () => {
         content: payload.content,
         noteType: payload.noteType,
         checklistItems: payload.checklistItems,
+        images: payload.images,
         pinned: payload.pinned,
         favorite: payload.favorite,
         createdAt: payload.createdAt,
@@ -277,6 +282,19 @@ const Index = () => {
     window.addEventListener('prnote:android-back', handleAndroidBack);
     return () => window.removeEventListener('prnote:android-back', handleAndroidBack);
   }, [view]);
+
+  useEffect(() => {
+    if (!unlockingNote) {
+      return;
+    }
+
+    const focusTimer = window.setTimeout(() => {
+      unlockInputRef.current?.focus();
+      unlockInputRef.current?.select();
+    }, 10);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [unlockingNote]);
 
   if (!onboarded) {
     return <Onboarding onComplete={completeOnboarding} onSetTheme={(theme) => updateSettings({ theme })} />;
@@ -306,6 +324,7 @@ const Index = () => {
             initialContent={editingNote?.content}
             initialNoteType={editingNote?.noteType}
             initialChecklistItems={editingNote?.checklistItems}
+            initialImages={editingNote?.images}
             initialPinned={editingNote?.pinned}
             initialFavorite={editingNote?.favorite}
             initialCreatedAt={editingNote?.createdAt}
@@ -389,33 +408,44 @@ const Index = () => {
             <div className="absolute inset-x-6 top-1/2 -translate-y-1/2 mx-auto max-w-sm rounded-2xl border border-border bg-card p-6">
               <h3 className="text-base font-semibold text-foreground">Unlock note</h3>
               <p className="mt-2 text-sm text-muted-foreground">Enter your custom passcode to open this note.</p>
-              <input
-                value={unlockInput}
-                onChange={(event) => setUnlockInput(event.target.value)}
-                type="password"
-                placeholder="Passcode"
-                className="mt-4 w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              {unlockError && <p className="mt-2 text-xs text-destructive">{unlockError}</p>}
-              <div className="mt-5 flex gap-3">
-                <button
-                  onClick={() => {
-                    setUnlockingNote(null);
-                    setUnlockInput('');
-                    setUnlockError('');
-                  }}
-                  className="flex-1 rounded-xl border border-border py-2.5 text-sm text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleUnlockCustomNote}
-                  disabled={unlockBusy || !unlockInput.trim()}
-                  className="flex-1 rounded-xl bg-foreground py-2.5 text-sm text-background disabled:opacity-50"
-                >
-                  Unlock
-                </button>
-              </div>
+              <form
+                className="mt-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleUnlockCustomNote();
+                }}
+              >
+                <input
+                  ref={unlockInputRef}
+                  value={unlockInput}
+                  onChange={(event) => setUnlockInput(event.target.value)}
+                  type="password"
+                  placeholder="Passcode"
+                  autoFocus
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {unlockError && <p className="mt-2 text-xs text-destructive">{unlockError}</p>}
+                <div className="mt-5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUnlockingNote(null);
+                      setUnlockInput('');
+                      setUnlockError('');
+                    }}
+                    className="flex-1 rounded-xl border border-border py-2.5 text-sm text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={unlockBusy || !unlockInput.trim()}
+                    className="flex-1 rounded-xl bg-foreground py-2.5 text-sm text-background disabled:opacity-50"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

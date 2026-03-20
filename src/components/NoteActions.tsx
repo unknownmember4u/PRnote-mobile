@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { Capacitor } from '@capacitor/core';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Pin, Star, Copy, FolderOpen, Zap, Lock, Archive, Share, Trash2, AlertTriangle } from 'lucide-react';
-import { Share as CapacitorShare } from '@capacitor/share';
-import type { Note, NotePriority } from '@/lib/store';
+import type { Note } from '@/lib/store';
 import { authenticateWithDeviceLock, hashSecret, verifySecret } from '@/lib/note-security';
-import { getShareText } from '@/lib/note-content';
+import NoteExportModal from './NoteExportModal';
 
 interface NoteActionsProps {
   note: Note;
@@ -17,12 +17,14 @@ interface NoteActionsProps {
 }
 
 const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDuplicate, onDelete }: NoteActionsProps) => {
+  const isNativeMobile = Capacitor.isNativePlatform() && ['android', 'ios'].includes(Capacitor.getPlatform());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [showLockPicker, setShowLockPicker] = useState(false);
   const [showCustomLockSetup, setShowCustomLockSetup] = useState(false);
   const [showCustomUnlock, setShowCustomUnlock] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [folderDraft, setFolderDraft] = useState('');
   const [customPasscode, setCustomPasscode] = useState('');
   const [customPasscodeConfirm, setCustomPasscodeConfirm] = useState('');
@@ -45,61 +47,6 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     onClose();
   };
 
-  const handleCopyNote = async () => {
-    try {
-      const text = getShareText(note);
-      await navigator.clipboard.writeText(text);
-      onClose();
-    } catch {
-      // Ignore clipboard errors in unsupported contexts.
-    }
-  };
-
-  const handleShareNote = async () => {
-    const text = getShareText(note);
-
-    try {
-      const capability = await CapacitorShare.canShare();
-      if (capability.value) {
-        await CapacitorShare.share({
-          title: note.title,
-          text,
-          dialogTitle: 'Share note',
-        });
-        onClose();
-        return;
-      }
-    } catch {
-      // Fall through to web share fallback.
-    }
-
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: note.title, text });
-        onClose();
-      } catch {
-        // User cancelled or share unavailable.
-      }
-      return;
-    }
-
-    await handleCopyNote();
-  };
-
-  const handleDeviceLock = async () => {
-    setIsBusy(true);
-    setLockError('');
-    const authenticated = await authenticateWithDeviceLock('Lock note', 'Confirm with device lock to protect this note');
-    setIsBusy(false);
-
-    if (!authenticated) {
-      setLockError('Device authentication failed. Please try again.');
-      return;
-    }
-
-    updateAndClose({ locked: true, lockType: 'device', customLockHash: null });
-  };
-
   const handleSetupCustomLock = async () => {
     if (!customPasscode.trim() || customPasscode.length < 4) {
       setLockError('Enter a passcode with at least 4 characters.');
@@ -117,6 +64,24 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
     setIsBusy(false);
     resetLockState();
     updateAndClose({ locked: true, lockType: 'custom', customLockHash: lockHash });
+  };
+
+  const handleSetupDeviceLock = async () => {
+    setIsBusy(true);
+    setLockError('');
+    const authenticated = await authenticateWithDeviceLock(
+      'Enable biometric lock',
+      'Confirm with your device biometrics or screen lock to protect this note.',
+    );
+    setIsBusy(false);
+
+    if (!authenticated) {
+      setLockError('Unable to enable biometric lock on this device.');
+      return;
+    }
+
+    resetLockState();
+    updateAndClose({ locked: true, lockType: 'device', customLockHash: null });
   };
 
   const handleUnlockNote = async () => {
@@ -175,7 +140,7 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
       },
     },
     { icon: Archive, label: note.archived ? 'Unarchive' : 'Archive', action: () => updateAndClose({ archived: !note.archived }) },
-    { icon: Share, label: 'Share', action: () => handleShareNote() },
+    { icon: Share, label: 'Share', action: () => setShowExportModal(true) },
   ];
 
   const availableFolders = Array.from(new Set(folders.filter(Boolean)));
@@ -352,24 +317,32 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
         {showLockPicker && !note.locked && (
           <div className="border-t border-border px-4 pb-4">
             <h4 className="pt-4 text-sm font-medium text-foreground">Lock this note</h4>
-            <p className="mt-1 text-xs text-muted-foreground">Choose your protection method.</p>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={handleDeviceLock}
-                disabled={isBusy}
-                className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
-              >
-                Use Device Lock
-              </button>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {isNativeMobile
+                ? 'Protect this note with biometrics or a custom passcode.'
+                : 'Protect this note with a custom passcode.'}
+            </p>
+            <div className="mt-3 space-y-2">
+              {isNativeMobile && (
+                <button
+                  onClick={() => {
+                    void handleSetupDeviceLock();
+                  }}
+                  disabled={isBusy}
+                  className="w-full rounded-xl border border-border px-3 py-2.5 text-sm text-foreground disabled:opacity-50"
+                >
+                  Use Biometric Lock
+                </button>
+              )}
               <button
                 onClick={() => {
                   setShowCustomLockSetup(true);
                   setLockError('');
                 }}
                 disabled={isBusy}
-                className="flex-1 rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
+                className="w-full rounded-xl border border-border px-3 py-2.5 text-sm text-foreground"
               >
-                Create New Lock
+                Create Custom Lock
               </button>
             </div>
             {!!lockError && <p className="mt-2 text-xs text-destructive">{lockError}</p>}
@@ -416,44 +389,53 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                 Set a passcode for this note. You will need this same passcode every time you unlock it.
               </p>
-              <div className="mt-5 space-y-3">
-                <input
-                  value={customPasscode}
-                  onChange={(event) => setCustomPasscode(event.target.value)}
-                  placeholder="Enter passcode"
-                  type="password"
-                  autoFocus
-                  className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-                <input
-                  value={customPasscodeConfirm}
-                  onChange={(event) => setCustomPasscodeConfirm(event.target.value)}
-                  placeholder="Confirm passcode"
-                  type="password"
-                  className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                />
-              </div>
-              {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowCustomLockSetup(false);
-                    setCustomPasscode('');
-                    setCustomPasscodeConfirm('');
-                    setLockError('');
-                  }}
-                  className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSetupCustomLock}
-                  disabled={isBusy}
-                  className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
-                >
-                  Save Lock
-                </button>
-              </div>
+              <form
+                className="mt-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSetupCustomLock();
+                }}
+              >
+                <div className="space-y-3">
+                  <input
+                    value={customPasscode}
+                    onChange={(event) => setCustomPasscode(event.target.value)}
+                    placeholder="Enter passcode"
+                    type="password"
+                    autoFocus
+                    className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                  <input
+                    value={customPasscodeConfirm}
+                    onChange={(event) => setCustomPasscodeConfirm(event.target.value)}
+                    placeholder="Confirm passcode"
+                    type="password"
+                    className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomLockSetup(false);
+                      setCustomPasscode('');
+                      setCustomPasscodeConfirm('');
+                      setLockError('');
+                    }}
+                    className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isBusy}
+                    className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
+                  >
+                    Save Lock
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </>
         )}
@@ -481,38 +463,54 @@ const NoteActions = ({ note, folders, onClose, onUpdate, onCreateFolder, onDupli
             >
               <h3 className="text-lg font-semibold text-foreground">Unlock note</h3>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Enter your custom passcode to unlock this note.</p>
-              <input
-                value={unlockPasscode}
-                onChange={(event) => setUnlockPasscode(event.target.value)}
-                placeholder="Passcode"
-                type="password"
-                autoFocus
-                className="mt-5 w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
-              />
-              {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowCustomUnlock(false);
-                    setUnlockPasscode('');
-                    setLockError('');
-                  }}
-                  className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCustomUnlockSubmit}
-                  disabled={isBusy || !unlockPasscode.trim()}
-                  className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
-                >
-                  Unlock
-                </button>
-              </div>
+              <form
+                className="mt-5"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleCustomUnlockSubmit();
+                }}
+              >
+                <input
+                  value={unlockPasscode}
+                  onChange={(event) => setUnlockPasscode(event.target.value)}
+                  placeholder="Passcode"
+                  type="password"
+                  autoFocus
+                  className="w-full rounded-xl border border-border bg-transparent px-3 py-3 text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {!!lockError && <p className="mt-3 text-xs text-destructive">{lockError}</p>}
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCustomUnlock(false);
+                      setUnlockPasscode('');
+                      setLockError('');
+                    }}
+                    className="flex-1 rounded-xl border border-border py-3 text-sm text-foreground"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isBusy || !unlockPasscode.trim()}
+                    className="flex-1 rounded-xl bg-foreground py-3 text-sm font-medium text-background disabled:opacity-50"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </>
         )}
       </AnimatePresence>
+
+      <NoteExportModal
+        open={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        onComplete={onClose}
+        note={note}
+      />
     </>
   );
 };

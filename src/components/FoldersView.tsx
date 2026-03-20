@@ -275,6 +275,12 @@ const FoldersView = ({
               <input
                 value={childFolderDraft}
                 onChange={(event) => setChildFolderDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleCreateChildFolder(fullPath);
+                  }
+                }}
                 placeholder="Subfolder name"
                 className="min-w-0 flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
                 autoFocus
@@ -305,8 +311,8 @@ const FoldersView = ({
       exit={{ opacity: 0 }}
       className="fixed inset-0 app-shell bg-background z-50 flex flex-col"
     >
-      <div className="flex-1 overflow-y-auto px-5 safe-top safe-bottom pb-4 hide-scrollbar">
-        <div className="flex items-center gap-3 mb-8">
+    <div className="flex-1 overflow-y-auto px-6 safe-bottom pb-4 hide-scrollbar md:px-7">
+      <div className="sticky top-0 z-20 -mx-6 mb-8 flex items-center gap-3 border-b border-border bg-background px-6 py-6 md:-mx-7 md:px-7 md:py-7">
           <button onClick={onBack} className="p-2 -ml-2"><ArrowLeft size={24} className="text-foreground" /></button>
           <h1 className="font-serif-display text-2xl font-semibold text-foreground">Organize</h1>
         </div>
@@ -329,6 +335,12 @@ const FoldersView = ({
               <input
                 value={rootFolderDraft}
                 onChange={(event) => setRootFolderDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleCreateRootFolder();
+                  }
+                }}
                 placeholder="Enter folder name"
                 className="flex-1 rounded-xl border border-border bg-transparent px-4 py-3 text-base text-foreground outline-none placeholder:text-muted-foreground"
                 autoFocus

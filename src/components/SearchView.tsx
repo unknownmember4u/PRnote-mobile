@@ -79,9 +79,9 @@ const SearchView = ({
       className="fixed inset-0 app-shell bg-background z-50 flex flex-col overflow-hidden"
     >
       {/* Search bar */}
-      <div className="px-4 safe-top pb-4">
+      <div className="sticky top-0 z-20 border-b border-border bg-background px-6 py-6 md:px-7 md:py-7">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="p-1">
+          <button onClick={onBack} className="rounded-lg p-2 -ml-2 transition-colors hover:bg-secondary">
             <ArrowLeft size={24} className="text-foreground" />
           </button>
           <div className="flex-1 flex items-center bg-card border border-border rounded-xl px-4 py-3">
@@ -103,7 +103,7 @@ const SearchView = ({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 safe-bottom hide-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 safe-bottom hide-scrollbar md:px-7">
         {/* Listening indicator */}
         {listening && (
           <div className="flex flex-col items-center py-8 gap-4">

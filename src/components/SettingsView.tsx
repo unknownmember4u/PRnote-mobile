@@ -209,8 +209,8 @@ const SettingsView = ({
       exit={{ opacity: 0 }}
       className="fixed inset-0 app-shell bg-background z-50 flex flex-col overflow-hidden"
     >
-      <div className="px-5 safe-top safe-bottom pb-4 min-h-0 flex-1 overflow-y-auto hide-scrollbar flex flex-col">
-        <div className="flex items-center gap-3 mb-8">
+      <div className="px-6 safe-bottom pb-4 min-h-0 flex-1 overflow-y-auto hide-scrollbar flex flex-col md:px-7">
+        <div className="sticky top-0 z-20 -mx-6 mb-8 flex items-center gap-3 border-b border-border bg-background px-6 py-6 md:-mx-7 md:px-7 md:py-7">
           <button onClick={onBack} className="p-1">
             <ArrowLeft size={24} className="text-foreground" />
           </button>
