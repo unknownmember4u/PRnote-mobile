@@ -14,6 +14,9 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
   plugins: {
+    Keyboard: {
+      resizeOnFullScreen: true,
+    },
     FirebaseAuthentication: {
       skipNativeAuth: true,
       providers: ['google.com'],

@@ -217,7 +217,7 @@ html, body, #root {
     min-height: 100dvh;
     max-height: 100dvh;
     padding-top: var(--app-safe-top);
-    padding-bottom: calc(var(--app-safe-bottom) + var(--keyboard-offset));
+    padding-bottom: var(--app-safe-bottom);
     padding-right: var(--app-safe-right);
     padding-left: var(--app-safe-left);
     box-sizing: border-box;
@@ -242,7 +242,7 @@ html, body, #root {
     padding-bottom: 1rem;
   }
   .safe-bottom-fab {
-    bottom: calc(var(--app-safe-bottom) + var(--keyboard-offset) + var(--fab-edge-gap));
+    bottom: calc(var(--app-safe-bottom) + var(--fab-edge-gap));
   }
   .safe-right-fab {
     right: calc(var(--app-safe-right) + var(--fab-edge-gap));

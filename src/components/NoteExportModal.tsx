@@ -69,7 +69,7 @@ const NoteExportModal = ({ note, open, onClose, onComplete }: NoteExportModalPro
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
-            className="fixed left-1/2 top-1/2 z-[71] w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-border bg-card p-5 shadow-2xl md:w-full md:max-w-lg md:p-6"
+            className="fixed inset-x-4 top-1/2 z-[71] mx-auto max-h-[calc(100dvh-2rem)] w-auto max-w-sm -translate-y-1/2 overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl md:inset-x-6 md:max-w-lg md:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
