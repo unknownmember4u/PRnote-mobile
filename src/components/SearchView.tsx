@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Mic, MoreVertical, X } from 'lucide-react';
+import { ArrowLeft, MoreVertical, X } from 'lucide-react';
 import type { Note } from '@/lib/store';
 import NoteActions from './NoteActions';
 import { getChecklistProgress, getNotePreview, getNoteSearchText } from '@/lib/note-content';
@@ -27,7 +27,6 @@ const SearchView = ({
   onDuplicateNote,
 }: SearchViewProps) => {
   const [query, setQuery] = useState('');
-  const [listening, setListening] = useState(false);
   const [actionNote, setActionNote] = useState<Note | null>(null);
 
   const priorities = useMemo(() => {
@@ -94,32 +93,12 @@ const SearchView = ({
             />
             {query ? (
               <button onClick={() => setQuery('')}><X size={18} className="text-muted-foreground" /></button>
-            ) : (
-              <button onClick={() => setListening(!listening)}>
-                <Mic size={18} className={listening ? 'text-foreground' : 'text-muted-foreground'} />
-              </button>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto px-6 safe-bottom hide-scrollbar md:px-7">
-        {/* Listening indicator */}
-        {listening && (
-          <div className="flex flex-col items-center py-8 gap-4">
-            <div className="flex items-end gap-2 h-6">
-              {[0, 1, 2, 3, 4].map(i => (
-                <div
-                  key={i}
-                  className="w-1.5 bg-foreground rounded-full animate-pulse-wave"
-                  style={{ animationDelay: `${i * 0.15}s` }}
-                />
-              ))}
-            </div>
-            <p className="text-sm font-medium text-muted-foreground">Listening for keywords...</p>
-          </div>
-        )}
-
         {/* Results */}
         {query && results.length > 0 && (
           <div className="py-4">

@@ -201,7 +201,25 @@ const NotesList = ({ notes, folders, onNewNote, onOpenNote, onOpenSearch, onOpen
             </section>
           ) : (
             <div className="space-y-8">
-              <section className="rounded-3xl border border-border bg-card/20 p-4 md:p-5">
+              <section className="md:hidden">
+                <div className="hide-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                  {tabs.map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors ${
+                        activeTab === tab
+                          ? 'bg-foreground text-background'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <section className="hidden rounded-3xl border border-border bg-card/20 p-5 md:block">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div>
                     <p className="text-lg font-semibold text-foreground">Browse Notes</p>
