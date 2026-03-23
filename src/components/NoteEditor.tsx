@@ -2,7 +2,14 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { ArrowLeft, Share as ShareIcon, Pin, Star, Type, CheckSquare2, Square, ListTodo, AlignLeft, Plus, X, ImagePlus } from 'lucide-react';
 import type { ChecklistItem, NoteFont, NoteFontSize, NoteImage, NoteType } from '@/lib/store';
-import { getChecklistProgress, getNoteWordCount, hasNoteContent, joinNoteTextSections, splitNoteTextSections } from '@/lib/note-content';
+import {
+  buildNoteContentFromBlocks,
+  getChecklistProgress,
+  getNoteWordCount,
+  hasNoteContent,
+  parseNoteContentBlocks,
+  removeImageMarkerFromContent,
+} from '@/lib/note-content';
 import NoteExportModal from './NoteExportModal';
 
 const FONT_OPTIONS: Array<{ value: NoteFont; label: string; family: string }> = [
@@ -56,14 +63,13 @@ const NoteEditor = ({
 }: NoteEditorProps) => {
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const editorScrollRef = useRef<HTMLDivElement | null>(null);
-  const topTextContentRef = useRef<HTMLTextAreaElement | null>(null);
-  const bottomTextContentRef = useRef<HTMLTextAreaElement | null>(null);
+  const textBlockRefs = useRef(new Map<number, HTMLTextAreaElement>());
   const checklistFirstInputRef = useRef<HTMLInputElement | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const lastTextCursorRef = useRef<{ blockIndex: number; cursorIndex: number } | null>(null);
+  const isInsertingImageRef = useRef(false);
   const [title, setTitle] = useState(initialTitle);
-  const initialTextSections = useMemo(() => splitNoteTextSections(initialContent), [initialContent]);
-  const [contentBeforeImages, setContentBeforeImages] = useState(initialTextSections.beforeImages);
-  const [contentAfterImages, setContentAfterImages] = useState(initialTextSections.afterImages);
+  const [content, setContent] = useState(initialContent);
   const [noteType, setNoteType] = useState<NoteType>(initialNoteType);
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(
     initialChecklistItems.length > 0 ? initialChecklistItems : [{ id: crypto.randomUUID(), text: '', checked: false }],
@@ -79,14 +85,16 @@ const NoteEditor = ({
   const [saveState, setSaveState] = useState<'idle' | 'pending' | 'saved'>('idle');
   const lastSavedSnapshotRef = useRef('');
   const isNativeMobile = Capacitor.isNativePlatform() && ['android', 'ios'].includes(Capacitor.getPlatform());
+  // Detect desktop web (not mobile, not tablet)
+  const isDesktopWeb = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: fine)').matches && !/Mobi|Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(window.navigator.userAgent);
+
+  // Detect light mode (not dark or amoled)
+  const isLightMode = typeof document !== 'undefined' && !document.documentElement.classList.contains('dark') && !document.documentElement.classList.contains('amoled');
   const visibleImages = useMemo(
     () => images.filter((image) => image.visibleIn === noteType),
     [images, noteType],
   );
-  const content = useMemo(
-    () => joinNoteTextSections(contentBeforeImages, contentAfterImages),
-    [contentAfterImages, contentBeforeImages],
-  );
+  const contentBlocks = useMemo(() => parseNoteContentBlocks(content), [content]);
   const shouldAutoFocusExistingNote = useMemo(
     () =>
       Boolean(
@@ -109,23 +117,22 @@ const NoteEditor = ({
         return;
       }
 
-      const focusTarget = images.length > 0
-        ? bottomTextContentRef.current ?? topTextContentRef.current
-        : topTextContentRef.current;
+      const firstTextBlockIndex = contentBlocks.findIndex((block) => block.type === 'text');
+      const focusTarget = firstTextBlockIndex >= 0 ? textBlockRefs.current.get(firstTextBlockIndex) ?? null : null;
       focusTarget?.focus();
       const length = focusTarget?.value.length ?? 0;
       focusTarget?.setSelectionRange(length, length);
     }, 10);
 
     return () => window.clearTimeout(focusTimer);
-  }, [images.length, isNativeMobile, noteType, shouldAutoFocusExistingNote]);
+  }, [contentBlocks, isNativeMobile, noteType, shouldAutoFocusExistingNote]);
 
   useEffect(() => {
     if (noteType !== 'text') {
       return;
     }
 
-    [topTextContentRef.current, bottomTextContentRef.current].forEach((textarea) => {
+    textBlockRefs.current.forEach((textarea) => {
       if (!textarea) {
         return;
       }
@@ -133,7 +140,7 @@ const NoteEditor = ({
       textarea.style.height = '0px';
       textarea.style.height = `${textarea.scrollHeight}px`;
     });
-  }, [contentAfterImages, contentBeforeImages, fontFamily, fontSize, noteType]);
+  }, [content, fontFamily, fontSize, noteType]);
 
   // Memoize word count calculation
   const wordCount = useMemo(
@@ -239,9 +246,13 @@ const NoteEditor = ({
   }, []);
 
   const focusTextCursorAtEnd = useCallback((section: 'before' | 'after' = 'after') => {
-    const target = section === 'before' || !images.length
-      ? topTextContentRef.current
-      : bottomTextContentRef.current ?? topTextContentRef.current;
+    const textBlockIndices = contentBlocks
+      .map((block, index) => (block.type === 'text' ? index : null))
+      .filter((index): index is number => index !== null);
+    const targetIndex = section === 'before'
+      ? textBlockIndices[0]
+      : textBlockIndices[textBlockIndices.length - 1];
+    const target = typeof targetIndex === 'number' ? textBlockRefs.current.get(targetIndex) ?? null : null;
 
     if (!target) {
       return;
@@ -250,7 +261,7 @@ const NoteEditor = ({
     target.focus();
     const length = target.value.length;
     target.setSelectionRange(length, length);
-  }, [images.length]);
+  }, [contentBlocks]);
 
   const scrollFieldIntoView = useCallback((target: HTMLElement | null) => {
     if (!target || !isNativeMobile) {
@@ -291,38 +302,67 @@ const NoteEditor = ({
     setTitle(e.target.value);
   }, []);
 
-  const handleContentBeforeImagesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContentBeforeImages(e.target.value);
+  const updateTextBlock = useCallback((blockIndex: number, nextText: string) => {
+    setContent((current) => {
+      const blocks = parseNoteContentBlocks(current);
+      const nextBlocks = blocks.map((block, index) => (index === blockIndex && block.type === 'text'
+        ? { type: 'text' as const, text: nextText }
+        : block));
+      return buildNoteContentFromBlocks(nextBlocks);
+    });
   }, []);
 
-  const handleContentAfterImagesChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContentAfterImages(e.target.value);
-  }, []);
-
-  const moveImageBlockToCursor = useCallback(() => {
-    if (noteType !== 'text') {
+  const registerTextBlockRef = useCallback((blockIndex: number) => (element: HTMLTextAreaElement | null) => {
+    if (element) {
+      textBlockRefs.current.set(blockIndex, element);
       return;
     }
 
+    textBlockRefs.current.delete(blockIndex);
+  }, []);
+
+  const getActiveTextBlockContext = useCallback(() => {
     const activeElement = document.activeElement;
 
-    if (activeElement === topTextContentRef.current && topTextContentRef.current) {
-      const cursorPosition = topTextContentRef.current.selectionStart ?? contentBeforeImages.length;
-      const nextBefore = contentBeforeImages.slice(0, cursorPosition);
-      const movedTail = contentBeforeImages.slice(cursorPosition);
-      setContentBeforeImages(nextBefore);
-      setContentAfterImages(`${movedTail}${contentAfterImages}`);
-      return;
+    for (const [index, textarea] of textBlockRefs.current.entries()) {
+      if (textarea === activeElement) {
+        return {
+          blockIndex: index,
+          cursorIndex: textarea.selectionStart ?? textarea.value.length,
+        };
+      }
     }
 
-    if (activeElement === bottomTextContentRef.current && bottomTextContentRef.current) {
-      const cursorPosition = bottomTextContentRef.current.selectionStart ?? contentAfterImages.length;
-      const movedHead = contentAfterImages.slice(0, cursorPosition);
-      const nextAfter = contentAfterImages.slice(cursorPosition);
-      setContentBeforeImages(`${contentBeforeImages}${movedHead}`);
-      setContentAfterImages(nextAfter);
+    return null;
+  }, []);
+
+  const insertImagesIntoContent = useCallback((source: string, blockIndex: number, cursorIndex: number, imageIds: string[]) => {
+    const blocks = parseNoteContentBlocks(source);
+    const target = blocks[blockIndex];
+    if (!target || target.type !== 'text') {
+      return { content: source, focusBlockIndex: blockIndex, focusCursorIndex: 0 };
     }
-  }, [contentAfterImages, contentBeforeImages, noteType]);
+
+    const before = target.text.slice(0, cursorIndex);
+    const after = target.text.slice(cursorIndex);
+    const nextBlocks = [
+      ...blocks.slice(0, blockIndex),
+      ...(before ? [{ type: 'text' as const, text: before }] : []),
+      ...imageIds.map((imageId) => ({ type: 'image' as const, imageId })),
+      ...(after ? [{ type: 'text' as const, text: after }] : []),
+      ...blocks.slice(blockIndex + 1),
+    ];
+
+    const focusBlockIndex = before
+      ? blockIndex + 1 + imageIds.length
+      : blockIndex + imageIds.length;
+
+    return {
+      content: buildNoteContentFromBlocks(nextBlocks),
+      focusBlockIndex,
+      focusCursorIndex: 0,
+    };
+  }, []);
 
   const fileToNoteImage = useCallback((file: File) => new Promise<NoteImage>((resolve, reject) => {
     const reader = new FileReader();
@@ -351,18 +391,82 @@ const NoteEditor = ({
       return;
     }
 
-    moveImageBlockToCursor();
-    const nextImages = await Promise.all(supported.map((file) => fileToNoteImage(file)));
-    setImages((current) => [...current, ...nextImages]);
-    window.setTimeout(() => {
-      focusTextCursorAtEnd();
-    }, 0);
-  }, [fileToNoteImage, focusTextCursorAtEnd, moveImageBlockToCursor]);
+    // Deduplicate files (some Android WebViews return the same file twice)
+    const seen = new Set<string>();
+    const unique = supported.filter((file) => {
+      const key = `${file.name}|${file.size}|${file.lastModified}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (unique.length === 0) {
+      return;
+    }
+
+    if (isInsertingImageRef.current) {
+      return;
+    }
+    isInsertingImageRef.current = true;
+
+    try {
+      const nextImages = await Promise.all(unique.map((file) => fileToNoteImage(file)));
+      const insertion = noteType === 'text'
+        ? (getActiveTextBlockContext() ?? lastTextCursorRef.current)
+        : null;
+      const targetImages = nextImages.map((image) => ({ ...image, visibleIn: noteType }));
+      setImages((current) => [...current, ...targetImages]);
+
+      if (noteType === 'text') {
+        const imageIds = targetImages.map((image) => image.id);
+        let focusBlockIndex = 0;
+        let focusCursorIndex = 0;
+
+        setContent((current) => {
+          const blocks = parseNoteContentBlocks(current);
+          let blockIdx = insertion?.blockIndex ?? -1;
+          let cursorIdx = insertion?.cursorIndex ?? 0;
+
+          if (blockIdx < 0 || blockIdx >= blocks.length || blocks[blockIdx].type !== 'text') {
+            for (let i = blocks.length - 1; i >= 0; i--) {
+              if (blocks[i].type === 'text') {
+                blockIdx = i;
+                cursorIdx = (blocks[i] as { type: 'text'; text: string }).text.length;
+                break;
+              }
+            }
+          } else {
+            const block = blocks[blockIdx];
+            if (block.type === 'text') {
+              cursorIdx = Math.min(cursorIdx, block.text.length);
+            }
+          }
+
+          const next = insertImagesIntoContent(current, blockIdx, cursorIdx, imageIds);
+          focusBlockIndex = next.focusBlockIndex;
+          focusCursorIndex = next.focusCursorIndex;
+          return next.content;
+        });
+
+        window.setTimeout(() => {
+          const target = textBlockRefs.current.get(focusBlockIndex);
+          target?.focus();
+          target?.setSelectionRange(focusCursorIndex, focusCursorIndex);
+        }, 0);
+        return;
+      }
+
+      window.setTimeout(() => {
+        focusTextCursorAtEnd();
+      }, 0);
+    } finally {
+      isInsertingImageRef.current = false;
+    }
+  }, [fileToNoteImage, focusTextCursorAtEnd, getActiveTextBlockContext, insertImagesIntoContent, noteType]);
 
   const handleImageFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
-    await appendImages(files);
     event.target.value = '';
+    await appendImages(files);
   }, [appendImages]);
 
   const handlePaste = useCallback(async (event: React.ClipboardEvent<HTMLElement>) => {
@@ -381,6 +485,7 @@ const NoteEditor = ({
 
   const handleRemoveImage = useCallback((id: string) => {
     setImages((current) => current.filter((image) => image.id !== id));
+    setContent((current) => removeImageMarkerFromContent(current, id));
   }, []);
 
   const ensureChecklistHasRow = useCallback(() => {
@@ -484,6 +589,11 @@ const NoteEditor = ({
     [noteType, checklistItems],
   );
 
+  const imageById = useMemo(
+    () => new Map(images.map((image) => [image.id, image] as const)),
+    [images],
+  );
+
   const handleBack = useCallback(() => {
     if (hasMeaningfulContent) {
       const payload = buildPayload();
@@ -502,8 +612,8 @@ const NoteEditor = ({
       return;
     }
 
-    focusTextCursorAtEnd(images.length > 0 ? 'after' : 'before');
-  }, [focusTextCursorAtEnd, images.length, noteType]);
+    focusTextCursorAtEnd(contentBlocks.some((block) => block.type === 'image') ? 'after' : 'before');
+  }, [contentBlocks, focusTextCursorAtEnd, noteType]);
 
   const handleTitleKeyDown = useCallback((event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key !== 'Tab') {
@@ -624,7 +734,14 @@ const NoteEditor = ({
       </div>
 
       {/* Editor */}
-      <div ref={editorScrollRef} className="hide-scrollbar flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain px-6 py-3">
+      <div
+        ref={editorScrollRef}
+        className={
+          'hide-scrollbar flex flex-1 min-h-0 flex-col overflow-y-auto overscroll-contain px-6 py-3 ' +
+          (isDesktopWeb && isLightMode ? 'bg-[hsl(var(--pr-editor-bg))] ' : '') +
+          'dark:bg-background amoled:bg-background'
+        }
+      >
         <input
           ref={imageInputRef}
           type="file"
@@ -754,50 +871,105 @@ const NoteEditor = ({
           </div>
         ) : (
           <div className="min-h-0 pb-2">
-            <textarea
-              ref={topTextContentRef}
-              value={contentBeforeImages}
-              onChange={handleContentBeforeImagesChange}
-              onWheel={handleContentWheel}
-              placeholder="Start writing..."
-              className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
-              style={textareaStyles}
-            />
-            {visibleImages.length > 0 && (
-              <div className="mt-4 space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {visibleImages.map((image) => (
-                    <div
-                      key={image.id}
-                      className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
-                      onClick={() => focusTextCursorAtEnd('after')}
-                    >
-                      <img src={image.dataUrl} alt={image.name} className="max-h-[32rem] w-full rounded-xl object-contain" />
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          handleRemoveImage(image.id);
-                        }}
-                        className="absolute right-3 top-3 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm"
-                        aria-label={`Remove ${image.name}`}
-                        title="Remove image"
-                      >
-                        <X size={14} />
-                      </button>
+            <div className="space-y-4">
+              {contentBlocks.map((block, index) => {
+                if (block.type === 'text') {
+                  const placeholder = index === 0 ? 'Start writing...' : 'Continue writing...';
+                  return (
+                    <textarea
+                      key={`text-${index}`}
+                      ref={registerTextBlockRef(index)}
+                      value={block.text}
+                      onChange={(event) => updateTextBlock(index, event.target.value)}
+                      onBlur={(event) => {
+                        lastTextCursorRef.current = { blockIndex: index, cursorIndex: event.target.selectionStart ?? event.target.value.length };
+                      }}
+                      onSelect={(event) => {
+                        const target = event.target as HTMLTextAreaElement;
+                        lastTextCursorRef.current = { blockIndex: index, cursorIndex: target.selectionStart ?? target.value.length };
+                      }}
+                      onWheel={handleContentWheel}
+                      placeholder={placeholder}
+                      className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
+                      style={textareaStyles}
+                    />
+                  );
+                }
+
+                if (block.type === 'legacy-break') {
+                  const explicitImageIds = new Set(
+                    contentBlocks
+                      .filter((b): b is { type: 'image'; imageId: string } => b.type === 'image')
+                      .map((b) => b.imageId),
+                  );
+                  const legacyOnlyImages = visibleImages.filter((image) => !explicitImageIds.has(image.id));
+                  if (legacyOnlyImages.length === 0) {
+                    return null;
+                  }
+                  return (
+                    <div key={`legacy-break-${index}`} className="space-y-4">
+                      {legacyOnlyImages.map((image) => (
+                        <div
+                          key={image.id}
+                          className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
+                          onClick={() => focusTextCursorAtEnd('after')}
+                        >
+                          <img src={image.dataUrl} alt={image.name} className="max-h-[32rem] w-full rounded-xl object-contain" />
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleRemoveImage(image.id);
+                            }}
+                            className="absolute right-3 top-3 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm"
+                            aria-label={`Remove ${image.name}`}
+                            title="Remove image"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                }
+
+                const image = imageById.get(block.imageId);
+                if (!image || image.visibleIn !== noteType) {
+                  return null;
+                }
+
+                return (
+                  <div
+                    key={`image-${image.id}`}
+                    className="relative overflow-hidden rounded-2xl border border-border bg-card/40 p-2"
+                    onClick={() => focusTextCursorAtEnd('after')}
+                  >
+                    <img src={image.dataUrl} alt={image.name} className="max-h-[32rem] w-full rounded-xl object-contain" />
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleRemoveImage(image.id);
+                      }}
+                      className="absolute right-3 top-3 rounded-full bg-background/80 p-1.5 text-foreground backdrop-blur-sm"
+                      aria-label={`Remove ${image.name}`}
+                      title="Remove image"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+              {contentBlocks.length === 0 && (
                 <textarea
-                  ref={bottomTextContentRef}
-                  value={contentAfterImages}
-                  onChange={handleContentAfterImagesChange}
+                  ref={registerTextBlockRef(0)}
+                  value=""
+                  onChange={() => undefined}
                   onWheel={handleContentWheel}
-                  placeholder="Continue writing..."
+                  placeholder="Start writing..."
                   className="w-full min-h-[3.5rem] overflow-hidden bg-transparent text-foreground placeholder:text-muted-foreground outline-none resize-none leading-[1.4]"
                   style={textareaStyles}
                 />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -810,6 +982,7 @@ const NoteEditor = ({
           content,
           checklistItems,
           noteType,
+          images: visibleImages,
         }}
       />
     </div>

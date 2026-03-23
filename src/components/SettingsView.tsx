@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Sun, Monitor, Trash2, Cloud, CloudDownload, CloudUpload, LogIn, LogOut } from 'lucide-react';
 import type { AppSettings, ThemeMode, Note, NoteFont, NoteFontSize } from '@/lib/store';
@@ -65,6 +65,25 @@ const SettingsView = ({
   const [selectedUploadIds, setSelectedUploadIds] = useState<string[]>([]);
   const [profileImageFailed, setProfileImageFailed] = useState(false);
 
+  const emailRef = useRef<HTMLParagraphElement>(null);
+  const fitEmailFontSize = useCallback(() => {
+    const el = emailRef.current;
+    if (!el) return;
+    el.style.fontSize = '1rem';
+    const parent = el.parentElement;
+    if (!parent) return;
+    const maxWidth = parent.clientWidth;
+    let size = 16;
+    while (el.scrollWidth > maxWidth && size > 8) {
+      size -= 0.5;
+      el.style.fontSize = `${size}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    fitEmailFontSize();
+  }, [cloudUserEmail, fitEmailFontSize]);
+
   useEffect(() => {
     // If the user cloud becomes empty (real-time sync), clear selection so the delete action
     // can't be triggered for stale document ids.
@@ -98,6 +117,7 @@ const SettingsView = ({
   };
 
   const handleConfirmDisconnect = async () => {
+    if (cloudBusyAction !== null) return; // Prevent double action
     await onCloudSignOut();
     setShowDisconnectConfirm(false);
   };
@@ -123,8 +143,12 @@ const SettingsView = ({
     setSelectedUploadIds(notes.map((note) => note.id));
   };
 
-  const handleUploadSelected = () => {
-    onCloudUpload(selectedUploadIds);
+  const handleUploadSelected = async () => {
+    try {
+      await onCloudUpload(selectedUploadIds);
+    } catch (e) {
+      alert('Upload failed. Please try again.');
+    }
     setShowUploadPicker(false);
   };
 
@@ -211,11 +235,19 @@ const SettingsView = ({
     >
       <div className="px-6 safe-bottom pb-4 min-h-0 flex-1 overflow-y-auto hide-scrollbar flex flex-col md:px-7">
         <div className="sticky top-0 z-20 -mx-6 mb-8 flex items-center gap-3 border-b border-border bg-background px-6 py-6 md:-mx-7 md:px-7 md:py-7">
-          <button onClick={onBack} className="p-1">
+          <button
+            aria-label="Go back"
+            onClick={onBack}
+            className="p-1"
+          >
             <ArrowLeft size={24} className="text-foreground" />
           </button>
           <h1 className="font-serif-display text-2xl font-semibold text-foreground">Settings</h1>
         </div>
+
+
+
+        
 
         {/* Cloud Backup */}
         <Section title="Cloud Backup">
@@ -237,7 +269,7 @@ const SettingsView = ({
                 )}
               </div>
               <div className="min-w-0 flex-1 self-center">
-                <p className="break-all text-base font-semibold leading-snug text-foreground">
+                <p ref={emailRef} className="whitespace-nowrap text-base font-semibold leading-snug text-foreground">
                   {cloudUserEmail ? cloudUserEmail : 'Google backup is disconnected'}
                 </p>
                 <p className="mt-1 break-words text-sm leading-relaxed text-muted-foreground">

@@ -21,6 +21,7 @@
   --fab-edge-gap: clamp(1rem, 4vw, 1.5rem);
   --fab-size: 3.5rem;
   --fab-clearance: calc(var(--fab-size) + var(--fab-edge-gap) * 2);
+  --pr-editor-bg: 42 41% 95%; /* Off-white for note editor only */
 }
 
 html, body, #root {
@@ -126,6 +127,7 @@ html, body, #root {
     --pr-border: 0 0% 22%;
     --pr-gray: 0 0% 70%;
     --pr-surface: 0 0% 8%;
+    --pr-editor-bg: 0 0% 0%; /* Editor bg matches AMOLED background */
   }
 }
 

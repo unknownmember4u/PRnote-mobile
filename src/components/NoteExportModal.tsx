@@ -1,11 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Download, FileText, FileType2, X } from 'lucide-react';
-import type { Note } from '@/lib/store';
-import type { ExportFormat } from '@/lib/note-export';
+import type { ExportFormat, ExportableNote } from '@/lib/note-export';
 import { shareOrDownloadNote } from '@/lib/note-export';
 import { useState } from 'react';
-
-type ExportableNote = Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType'>;
 
 interface NoteExportModalProps {
   note: ExportableNote;
@@ -57,25 +54,22 @@ const NoteExportModal = ({ note, open, onClose, onComplete }: NoteExportModalPro
   return (
     <AnimatePresence>
       {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-background/70 backdrop-blur-sm"
+        <div className="fixed inset-0 z-[70]">
+          <div
+            className="absolute inset-0 bg-background/75 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            className="fixed inset-x-4 top-1/2 z-[71] mx-auto max-h-[calc(100dvh-2rem)] w-auto max-w-sm -translate-y-1/2 overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-2xl md:inset-x-6 md:max-w-lg md:p-6"
+            initial={{ opacity: 0, y: 20, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.98 }}
+            className="absolute inset-x-5 top-1/2 -translate-y-1/2 mx-auto max-w-sm rounded-2xl border border-border bg-card p-6 shadow-xl"
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
                 <h3 className="text-lg font-semibold text-foreground">Share note</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  Choose how you want to export this note. If direct sharing is unavailable, the file will download automatically.
+                  Choose a format to export this note.
                 </p>
               </div>
               <button
@@ -87,22 +81,22 @@ const NoteExportModal = ({ note, open, onClose, onComplete }: NoteExportModalPro
               </button>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-5 space-y-2">
               {exportOptions.map((option) => (
                 <button
                   key={option.format}
                   onClick={() => handleExport(option.format)}
                   disabled={busyFormat !== null}
-                  className="flex w-full items-start gap-4 rounded-2xl border border-border bg-background/50 px-4 py-4 text-left transition-colors hover:bg-secondary disabled:opacity-60"
+                  className="flex w-full items-center gap-3 rounded-xl border border-border bg-background/50 px-3 py-3 text-left transition-colors hover:bg-secondary disabled:opacity-60"
                 >
-                  <div className="rounded-xl border border-border bg-card/70 p-3">
-                    <option.icon size={18} className="text-foreground" />
+                  <div className="rounded-lg border border-border bg-card/70 p-2">
+                    <option.icon size={16} className="text-foreground" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-base font-semibold text-foreground">
+                    <p className="text-sm font-semibold text-foreground">
                       {busyFormat === option.format ? `Preparing ${option.label}...` : option.label}
                     </p>
-                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                    <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                       {option.description}
                     </p>
                   </div>
@@ -110,7 +104,7 @@ const NoteExportModal = ({ note, open, onClose, onComplete }: NoteExportModalPro
               ))}
             </div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

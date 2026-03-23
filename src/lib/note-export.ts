@@ -6,6 +6,7 @@ import {
   BorderStyle,
   Document,
   HeadingLevel,
+  ImageRun,
   Packer,
   PageBorderDisplay,
   PageBorderOffsetFrom,
@@ -14,12 +15,16 @@ import {
   TextRun,
 } from 'docx';
 import { jsPDF } from 'jspdf';
-import type { Note } from '@/lib/store';
-import { getShareText } from '@/lib/note-content';
+import type { Note, NoteImage } from '@/lib/store';
+import { getShareText, parseNoteContentBlocks, stripNoteTextMarkers } from '@/lib/note-content';
 
 export type ExportFormat = 'text' | 'pdf' | 'docx';
 
-type ExportableNote = Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType'>;
+export type ExportableNote = Pick<Note, 'title' | 'content' | 'checklistItems' | 'noteType' | 'images'>;
+
+type PdfBlock =
+  | { type: 'text'; text: string }
+  | { type: 'image'; image: NoteImage };
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -46,8 +51,118 @@ function getNoteLines(note: ExportableNote): string[] {
       .filter((line): line is string => Boolean(line));
   }
 
-  const content = note.content.trim();
+  const content = stripNoteTextMarkers(note.content).trim();
   return content ? content.split('\n') : [];
+}
+
+function getExportImages(note: ExportableNote): NoteImage[] {
+  return (note.images ?? []).filter((image) => image.visibleIn === note.noteType);
+}
+
+function getExportBlocks(note: ExportableNote): PdfBlock[] {
+  const images = getExportImages(note);
+
+  if (note.noteType === 'checklist') {
+    return [
+      ...getNoteLines(note).map((text) => ({ type: 'text' as const, text })),
+      ...images.map((image) => ({ type: 'image' as const, image })),
+    ];
+  }
+
+  const imageById = new Map(images.map((image) => [image.id, image] as const));
+  const blocks = parseNoteContentBlocks(note.content);
+  const result: PdfBlock[] = [];
+  const usedImages = new Set<string>();
+
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      if (block.text.trim()) {
+        result.push({ type: 'text', text: block.text });
+      }
+      continue;
+    }
+
+    if (block.type === 'legacy-break') {
+      images.forEach((image) => {
+        if (!usedImages.has(image.id)) {
+          result.push({ type: 'image', image });
+          usedImages.add(image.id);
+        }
+      });
+      continue;
+    }
+
+    const image = imageById.get(block.imageId);
+    if (!image || usedImages.has(image.id)) {
+      continue;
+    }
+
+    result.push({ type: 'image', image });
+    usedImages.add(image.id);
+  }
+
+  images.forEach((image) => {
+    if (!usedImages.has(image.id)) {
+      result.push({ type: 'image', image });
+    }
+  });
+
+  return result;
+}
+
+function getTextExportContent(note: ExportableNote): string {
+  const title = note.title.trim() || 'Untitled';
+  const images = getExportImages(note);
+
+  if (note.noteType === 'checklist') {
+    const lines = note.checklistItems
+      .map((item) => item.text.trim() ? `- [${item.checked ? 'x' : ' '}] ${item.text.trim()}` : null)
+      .filter((line): line is string => Boolean(line));
+
+    const imageLines = images.map((image) => `[Image: ${image.name}]`);
+    return [title, ...lines, ...imageLines].join('\n').trim();
+  }
+
+  const blocks = getExportBlocks(note);
+  const sections: string[] = [title];
+
+  blocks.forEach((block) => {
+    if (block.type === 'text') {
+      const text = stripNoteTextMarkers(block.text).trim();
+      if (text) {
+        sections.push(text);
+      }
+      return;
+    }
+
+    sections.push(`[Image: ${block.image.name}]`);
+  });
+
+  return sections.join('\n\n').trim();
+}
+
+async function loadImageDimensions(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      resolve({
+        width: image.naturalWidth || image.width || 1,
+        height: image.naturalHeight || image.height || 1,
+      });
+    };
+    image.onerror = () => reject(new Error('Could not load note image.'));
+    image.src = dataUrl;
+  });
+}
+
+async function dataUrlToUint8Array(dataUrl: string): Promise<Uint8Array> {
+  const response = await fetch(dataUrl);
+  const buffer = await response.arrayBuffer();
+  return new Uint8Array(buffer);
+}
+
+function getImageFormat(mimeType: string): 'PNG' | 'JPEG' {
+  return mimeType.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
 }
 
 function sanitizeFilename(title: string): string {
@@ -62,7 +177,7 @@ async function buildPdfFile(note: ExportableNote): Promise<File> {
   });
 
   const title = note.title.trim() || 'Untitled';
-  const lines = getNoteLines(note);
+  const blocks = getExportBlocks(note);
   const marginX = 56;
   const marginY = 56;
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -102,31 +217,64 @@ async function buildPdfFile(note: ExportableNote): Promise<File> {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(12.5);
 
-  const bodyLines = lines.length > 0 ? lines : [''];
-  for (const line of bodyLines) {
+  const renderHeader = () => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    wrappedTitle.forEach((titleLine, index) => {
+      doc.text(titleLine, pageWidth / 2, cursorY + index * 26, { align: 'center' });
+    });
+    cursorY += wrappedTitle.length * 26 + 18;
+    doc.setDrawColor(150, 150, 150);
+    doc.setLineWidth(0.8);
+    doc.line(marginX, cursorY, pageWidth - marginX, cursorY);
+    cursorY += 24;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12.5);
+  };
+
+  const addPageWithHeader = () => {
+    doc.addPage();
+    drawPageBorder();
+    cursorY = marginY + 22;
+    renderHeader();
+  };
+
+  const ensureSpace = (requiredHeight: number) => {
+    if (cursorY + requiredHeight > pageHeight - marginY) {
+      addPageWithHeader();
+    }
+  };
+
+  const renderText = (line: string) => {
     const wrappedLine = doc.splitTextToSize(line || ' ', contentWidth);
+    const requiredHeight = wrappedLine.length * 20 + 8;
+    ensureSpace(requiredHeight);
+    doc.text(wrappedLine, marginX, cursorY);
+    cursorY += requiredHeight;
+  };
 
-    if (cursorY + wrappedLine.length * 20 > pageHeight - marginY) {
-      doc.addPage();
-      drawPageBorder();
-      cursorY = marginY + 22;
+  const renderImage = async (image: NoteImage) => {
+    const dimensions = await loadImageDimensions(image.dataUrl);
+    const maxWidth = contentWidth;
+    const maxHeight = 320;
+    const scale = Math.min(maxWidth / dimensions.width, maxHeight / dimensions.height, 1);
+    const width = dimensions.width * scale;
+    const height = dimensions.height * scale;
+    const requiredHeight = height + 12;
+    ensureSpace(requiredHeight);
 
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(22);
-      wrappedTitle.forEach((titleLine, index) => {
-        doc.text(titleLine, pageWidth / 2, cursorY + index * 26, { align: 'center' });
-      });
-      cursorY += wrappedTitle.length * 26 + 18;
-      doc.setDrawColor(150, 150, 150);
-      doc.setLineWidth(0.8);
-      doc.line(marginX, cursorY, pageWidth - marginX, cursorY);
-      cursorY += 24;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12.5);
+    const x = marginX + (contentWidth - width) / 2;
+    doc.addImage(image.dataUrl, getImageFormat(image.mimeType), x, cursorY, width, height);
+    cursorY += requiredHeight;
+  };
+
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      renderText(block.text);
+      continue;
     }
 
-    doc.text(wrappedLine, marginX, cursorY);
-    cursorY += wrappedLine.length * 20 + 8;
+    await renderImage(block.image);
   }
 
   const blob = doc.output('blob');
@@ -135,7 +283,72 @@ async function buildPdfFile(note: ExportableNote): Promise<File> {
 
 async function buildDocxFile(note: ExportableNote): Promise<File> {
   const title = note.title.trim() || 'Untitled';
-  const lines = getNoteLines(note);
+  const blocks = getExportBlocks(note);
+
+  const children: Paragraph[] = [
+    new Paragraph({
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.CENTER,
+      spacing: {
+        after: 220,
+      },
+      children: [new TextRun({ text: title, bold: true, size: 34 })],
+    }),
+    new Paragraph({
+      border: {
+        bottom: {
+          color: 'B0B0B0',
+          style: BorderStyle.SINGLE,
+          size: 8,
+        },
+      },
+      spacing: {
+        after: 220,
+      },
+      children: [new TextRun({ text: '' })],
+    }),
+  ];
+
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      children.push(
+        new Paragraph({
+          spacing: {
+            line: 360,
+            after: 120,
+          },
+          children: [new TextRun({ text: block.text, size: 24 })],
+        }),
+      );
+      continue;
+    }
+
+    const dimensions = await loadImageDimensions(block.image.dataUrl);
+    const maxWidth = 500;
+    const scale = Math.min(maxWidth / dimensions.width, 1);
+    const width = Math.round(dimensions.width * scale);
+    const height = Math.round(dimensions.height * scale);
+    const imageBytes = await dataUrlToUint8Array(block.image.dataUrl);
+
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: {
+          before: 120,
+          after: 180,
+        },
+        children: [
+          new ImageRun({
+            data: imageBytes,
+            transformation: {
+              width,
+              height,
+            },
+          }),
+        ],
+      }),
+    );
+  }
 
   const doc = new Document({
     sections: [{
@@ -158,45 +371,7 @@ async function buildDocxFile(note: ExportableNote): Promise<File> {
           },
         },
       },
-      children: [
-        new Paragraph({
-          heading: HeadingLevel.TITLE,
-          alignment: AlignmentType.CENTER,
-          spacing: {
-            after: 220,
-          },
-          children: [new TextRun({ text: title, bold: true, size: 34 })],
-        }),
-        new Paragraph({
-          border: {
-            bottom: {
-              color: 'B0B0B0',
-              style: BorderStyle.SINGLE,
-              size: 8,
-            },
-          },
-          spacing: {
-            after: 220,
-          },
-          children: [new TextRun({ text: '' })],
-        }),
-        ...(
-          lines.length > 0
-            ? lines.map((line) => new Paragraph({
-                spacing: {
-                  line: 360,
-                  after: 120,
-                },
-                children: [new TextRun({ text: line, size: 24 })],
-              }))
-            : [new Paragraph({
-                spacing: {
-                  line: 360,
-                },
-                children: [new TextRun({ text: '', size: 24 })],
-              })]
-        ),
-      ],
+      children,
     }],
   });
 
@@ -210,7 +385,7 @@ async function buildDocxFile(note: ExportableNote): Promise<File> {
 
 async function buildTextFile(note: ExportableNote): Promise<File> {
   const title = note.title.trim() || 'Untitled';
-  const text = getShareText(note);
+  const text = getTextExportContent(note) || getShareText(note);
   return new File([text], `${sanitizeFilename(title)}.txt`, { type: 'text/plain;charset=utf-8' });
 }
 
